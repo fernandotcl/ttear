@@ -95,7 +95,6 @@ inline void Video::initialize_colormap()
 
 void Video::fix_resolution()
 {
-    fix_resolution();
     if (g_options.x_res % SCREEN_WIDTH) {
         LOGWARNING << "X resolution is not a multiple of " << SCREEN_WIDTH << ", tweaking it" << endl;
         g_options.x_res = g_options.x_res / SCREEN_WIDTH;
