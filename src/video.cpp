@@ -1,3 +1,7 @@
+// TODO Implement the GL_TEXTURE_RECTANGLE_ARB extension, if supported
+// TODO Implement GL_LINEAR
+// TODO Implement keep_aspect = false
+
 #include "globals.h"
 
 extern "C" {
@@ -9,50 +13,72 @@ extern "C" {
 
 #include "options.h"
 
-typedef void (GLAPIENTRY *glDisable_t)(GLenum cap);
-typedef void (GLAPIENTRY *glViewport_t)(GLint x, GLint y, GLsizei width, GLsizei height);
-typedef void (GLAPIENTRY *glMatrixMode_t)(GLenum mode);
+typedef void (GLAPIENTRY *glEnable_t)(GLenum);
+typedef void (GLAPIENTRY *glDisable_t)(GLenum);
+typedef void (GLAPIENTRY *glShadeModel_t)(GLenum);
+typedef void (GLAPIENTRY *glHint_t)(GLenum, GLenum);
+typedef void (GLAPIENTRY *glTexParameteri_t)(GLenum, GLenum, GLint);
+typedef void (GLAPIENTRY *glViewport_t)(GLint, GLint, GLsizei, GLsizei);
+typedef void (GLAPIENTRY *glMatrixMode_t)(GLenum);
 typedef void (GLAPIENTRY *glLoadIdentity_t)();
-typedef void (GLAPIENTRY *glOrtho_t)(GLdouble left, GLdouble right,
-        GLdouble bottom, GLdouble top, GLdouble near_val, GLdouble far_val);
-typedef void (GLAPIENTRY *glBegin_t)(GLenum mode);
+typedef void (GLAPIENTRY *glOrtho_t)(GLdouble, GLdouble, GLdouble, GLdouble, GLdouble, GLdouble);
+typedef void (GLAPIENTRY *glClear_t)(GLbitfield);
+typedef void (GLAPIENTRY *glGenTextures_t)(GLsizei, GLuint *);
+typedef void (GLAPIENTRY *glBindTexture_t)(GLenum, GLuint);
+typedef void (GLAPIENTRY *glTexImage2D_t)(GLenum, GLint, GLint, GLsizei, GLsizei, GLint, GLenum, GLenum, const GLvoid*);
+typedef void (GLAPIENTRY *glTexSubImage2D_t)(GLenum, GLint, GLint, GLint, GLsizei, GLsizei,
+        GLenum, GLenum, const GLvoid*);
+typedef void (GLAPIENTRY *glBegin_t)(GLenum);
 typedef void (GLAPIENTRY *glEnd_t)();
-typedef void (GLAPIENTRY *glVertex3f_t)(GLfloat x, GLfloat y, GLfloat z);
-//typedef void (GLAPIENTRY *glBindTexture_t)(GLenum target, GLuint texture);
-//typedef void (GLAPIENTRY *glTexParameteri_t)(GLenum target, GLenum pname, GLint param);
+typedef void (GLAPIENTRY *glTexCoord2f_t)(GLfloat, GLfloat);
+typedef void (GLAPIENTRY *glVertex2i_t)(GLint, GLint);
 
+static glEnable_t s_glEnable;
 static glDisable_t s_glDisable;
+static glShadeModel_t s_glShadeModel;
+static glHint_t s_glHint;
+static glTexParameteri_t s_glTexParameteri;
 static glViewport_t s_glViewport;
 static glMatrixMode_t s_glMatrixMode;
 static glLoadIdentity_t s_glLoadIdentity;
 static glOrtho_t s_glOrtho;
+static glClear_t s_glClear;
+static glGenTextures_t s_glGenTextures;
+static glBindTexture_t s_glBindTexture;
+static glTexImage2D_t s_glTexImage2D;
+static glTexSubImage2D_t s_glTexSubImage2D;
 static glBegin_t s_glBegin;
 static glEnd_t s_glEnd;
-static glVertex3f_t s_glVertex3f;
-//static glBindTexture_t s_glBindTexture;
-//static glTexParameteri_t s_glTexParameteri;
+static glTexCoord2f_t s_glTexCoord2f;
+static glVertex2i_t s_glVertex2i;
 
-Video::Video()
-    : using_opengl_(false),
-      using_temp_surface_(false)
+template<typename T> void Video::load_opengl_proc(T &var, const char *procname)
 {
-    screen_ = SDL_CreateRGBSurface(SDL_SWSURFACE, SCREEN_WIDTH, SCREEN_HEIGHT, 32, 0, 0, 0, 0);
-    if (!screen_)
-        throw(runtime_error(SDL_GetError()));
+    var = (T)SDL_GL_GetProcAddress(procname);
+    if (!var)
+        throw(runtime_error(string("Unable to load ") + procname));
 }
 
 void Video::load_opengl_procs()
 {
-    s_glDisable = (glDisable_t)SDL_GL_GetProcAddress("glDisable");
-    s_glViewport = (glViewport_t)SDL_GL_GetProcAddress("glViewport");
-    s_glMatrixMode = (glMatrixMode_t)SDL_GL_GetProcAddress("glMatrixMode");
-    s_glLoadIdentity = (glLoadIdentity_t)SDL_GL_GetProcAddress("glLoadIdentity");
-    s_glOrtho = (glOrtho_t)SDL_GL_GetProcAddress("glOrtho");
-    s_glBegin = (glBegin_t)SDL_GL_GetProcAddress("glBegin");
-    s_glEnd = (glEnd_t)SDL_GL_GetProcAddress("glEnd");
-    s_glVertex3f = (glVertex3f_t)SDL_GL_GetProcAddress("glVertex3f");
-    //s_glBindTexture = (glBindTexture_t)SDL_GL_GetProcAddress("glBindTexture");
-    //s_glTexParameteri = (glTexParameteri_t)SDL_GL_GetProcAddress("glTexParameteri");
+    load_opengl_proc(s_glEnable, "glEnable");
+    load_opengl_proc(s_glDisable, "glDisable");
+    load_opengl_proc(s_glShadeModel, "glShadeModel");
+    load_opengl_proc(s_glHint, "glHint");
+    load_opengl_proc(s_glTexParameteri, "glTexParameteri");
+    load_opengl_proc(s_glViewport, "glViewport");
+    load_opengl_proc(s_glMatrixMode, "glMatrixMode");
+    load_opengl_proc(s_glLoadIdentity, "glLoadIdentity");
+    load_opengl_proc(s_glOrtho, "glOrtho");
+    load_opengl_proc(s_glClear, "glClear");
+    load_opengl_proc(s_glGenTextures, "glGenTextures");
+    load_opengl_proc(s_glBindTexture, "glBindTexture");
+    load_opengl_proc(s_glTexImage2D, "glTexImage2D");
+    load_opengl_proc(s_glTexSubImage2D, "glTexSubImage2D");
+    load_opengl_proc(s_glBegin, "glBegin");
+    load_opengl_proc(s_glEnd, "glEnd");
+    load_opengl_proc(s_glTexCoord2f, "glTexCoord2f");
+    load_opengl_proc(s_glVertex2i, "glVertex2i");
 }
 
 inline void Video::initialize_colormap()
@@ -75,7 +101,7 @@ inline void Video::initialize_colormap()
         {  0, 187, 217}, // dark green
         {199,   0,   8}, // red
         {204,  22, 179}, // violet
-        {157, 135,  16}, // orange
+        {157, 1.0,  16}, // orange
         {225, 209, 225}, // light gray
 
         // Sprite or char colors
@@ -89,11 +115,43 @@ inline void Video::initialize_colormap()
         {255, 255, 255}  // white
     };
 
-    for (int i = 0; i < 24; ++i)
-        colormap_[i] = SDL_MapRGB(screen_->format, table[i][0], table[i][1], table[i][2]);
+    if (using_opengl_) {
+        for (int i = 0; i < 24; ++i)
+            colormap_[i] = SDL_MapRGB(screen_->format, table[i][2], table[i][1], table[i][0]);
+    }
+    else {
+        for (int i = 0; i < 24; ++i)
+            colormap_[i] = SDL_MapRGB(screen_->format, table[i][0], table[i][1], table[i][2]);
+    }
 }
 
-void Video::fix_resolution()
+void Video::set_video_mode()
+{
+    Uint32 flags = g_options.opengl ? SDL_OPENGL : SDL_SWSURFACE;
+    if (g_options.fullscreen)
+        flags |= SDL_FULLSCREEN;
+    if (g_options.double_buffering) {
+        if (g_options.opengl)
+            SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+        else
+            flags |= SDL_DOUBLEBUF;
+    }
+
+    real_screen_ = SDL_SetVideoMode(g_options.x_res, g_options.y_res, 32, flags);
+    if (!real_screen_)
+        throw(runtime_error(SDL_GetError()));
+
+    if (!using_opengl_ && scale_ != 1 && real_screen_->format->BitsPerPixel != 32) {
+        LOGWARNING << "Unable to set a 32bpp video mode, blitting will be slower" << endl;
+        tmp_screen_ = SDL_CreateRGBSurface(SDL_SWSURFACE, SCREEN_WIDTH * scale_, SCREEN_HEIGHT * scale_,
+                32, 0, 0, 0, 0);
+        if (!tmp_screen_)
+            throw(runtime_error(SDL_GetError()));
+        using_temp_surface_ = true;
+    }
+}
+
+void Video::init_software()
 {
     if (g_options.x_res % SCREEN_WIDTH) {
         LOGWARNING << "X resolution is not a multiple of " << SCREEN_WIDTH << ", tweaking it" << endl;
@@ -120,45 +178,40 @@ void Video::fix_resolution()
     g_options.y_res = SCREEN_HEIGHT * scale_;
 }
 
-void Video::set_video_mode()
-{
-    Uint32 flags = g_options.opengl ? SDL_OPENGL : SDL_SWSURFACE;
-    if (g_options.fullscreen)
-        flags |= SDL_FULLSCREEN;
-
-    real_screen_ = SDL_SetVideoMode(g_options.x_res, g_options.y_res, 32, flags);
-    if (!real_screen_)
-        throw(runtime_error(SDL_GetError()));
-
-    if (!using_opengl_ && scale_ != 1 && real_screen_->format->BitsPerPixel != 32) {
-        LOGWARNING << "Unable to set a 32bpp video mode, blitting will be slower" << endl;
-        tmp_screen_ = SDL_CreateRGBSurface(SDL_SWSURFACE, SCREEN_WIDTH * scale_, SCREEN_HEIGHT * scale_,
-                32, 0, 0, 0, 0);
-        if (!tmp_screen_)
-            throw(runtime_error(SDL_GetError()));
-        using_temp_surface_ = true;
-    }
-}
-
 void Video::init_opengl()
 {
-    s_glViewport(0, 0, g_options.x_res, g_options.y_res);
+    x_proportion_ = SCREEN_WIDTH / (float)SCREEN_WIDTH_POWER2;
+    y_proportion_ = SCREEN_HEIGHT / (float)SCREEN_HEIGHT_POWER2;
 
+    s_glShadeModel(GL_FLAT);
+    s_glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
+    s_glDisable(GL_CULL_FACE);
+    s_glDisable(GL_DEPTH_TEST);
+    s_glDisable(GL_ALPHA_TEST);
+    s_glDisable(GL_LIGHTING);
+
+    s_glEnable(GL_TEXTURE_2D);
+
+    s_glViewport(0, 0, g_options.x_res, g_options.y_res);
     s_glMatrixMode(GL_PROJECTION);
     s_glLoadIdentity();
     s_glOrtho(0, g_options.x_res, g_options.y_res, 0, -1, 1);
-
     s_glMatrixMode(GL_MODELVIEW);
     s_glLoadIdentity();
 
-    s_glDisable(GL_DEPTH_TEST);
+    GLuint texture;
+    s_glGenTextures(1, &texture);
+    s_glBindTexture(GL_TEXTURE_2D, texture);
+    s_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    s_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    s_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCREEN_WIDTH_POWER2, SCREEN_HEIGHT_POWER2,
+            0, GL_RGBA, GL_UNSIGNED_BYTE, screen_->pixels);
 
-    s_glBegin(GL_QUADS);
-        s_glVertex3f(0, 0, 0);
-        s_glVertex3f(g_options.x_res, 0, 0);
-        s_glVertex3f(g_options.x_res, g_options.y_res, 0);
-        s_glVertex3f(0.0, g_options.y_res, 0);
-    s_glEnd();
+    s_glClear(GL_COLOR_BUFFER_BIT);
+    if (g_options.double_buffering) {
+        SDL_GL_SwapBuffers();
+        s_glClear(GL_COLOR_BUFFER_BIT);
+    }
 }
 
 void Video::init()
@@ -171,12 +224,21 @@ void Video::init()
     }
 
     if (!using_opengl_)
-        fix_resolution();
+        init_software();
     set_video_mode();
+
+    if (using_opengl_)
+        screen_ = SDL_CreateRGBSurface(SDL_SWSURFACE, SCREEN_WIDTH_POWER2, SCREEN_HEIGHT_POWER2, 32, 0, 0, 0, 0);
+    else
+        screen_ = SDL_CreateRGBSurface(SDL_SWSURFACE, SCREEN_WIDTH, SCREEN_HEIGHT, 32, 0, 0, 0, 0);
+    if (!screen_)
+        throw(runtime_error(SDL_GetError()));
+    else if (screen_->format->BytesPerPixel != 4)
+        throw(runtime_error("Asked for a 32bpp surface, but received something else"));
 
     if (using_opengl_) {
         load_opengl_procs();
-        init_opengl();
+        init_opengl(); // OpenGL can only be initialized after set_video_mode
     }
 
     SDL_ShowCursor(SDL_DISABLE);
@@ -237,10 +299,28 @@ void Video::blit_software()
         else
             SDL_UnlockSurface(screen_);
     }
-    SDL_UpdateRect(real_screen_, 0, 0, SCREEN_WIDTH * scale_, SCREEN_HEIGHT * scale_);
+
+    if (g_options.double_buffering)
+        SDL_Flip(real_screen_);
+    else
+        SDL_UpdateRect(real_screen_, 0, 0, SCREEN_WIDTH * scale_, SCREEN_HEIGHT * scale_);
 }
 
 void Video::blit_opengl()
 {
+    s_glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH_POWER2, SCREEN_HEIGHT_POWER2,
+            GL_RGBA, GL_UNSIGNED_BYTE, screen_->pixels);
+
+    s_glBegin(GL_QUADS);
+        s_glTexCoord2f(0, 0);
+        s_glVertex2i(0, 0);
+        s_glTexCoord2f(x_proportion_, 0);
+        s_glVertex2i(g_options.x_res, 0);
+        s_glTexCoord2f(x_proportion_, y_proportion_);
+        s_glVertex2i(g_options.x_res, g_options.y_res);
+        s_glTexCoord2f(0, y_proportion_);
+        s_glVertex2i(0, g_options.y_res);
+    s_glEnd();
+
     SDL_GL_SwapBuffers();
 }

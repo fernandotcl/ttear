@@ -26,7 +26,7 @@ class Options
 
         bool debug, debug_on_ill;
 
-        bool opengl, fullscreen;
+        bool opengl, fullscreen, double_buffering, keep_aspect;
         unsigned int x_res, y_res;
 
         Joysticks::controls_t controls[2];

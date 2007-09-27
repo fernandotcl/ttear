@@ -30,7 +30,7 @@ inline bool Vdc::grid_enabled() const
 
 inline bool Vdc::is_drawable(int x) const
 {
-    return x < Video::SCREEN_WIDTH;
+    return x >= 0 && x <= Video::SCREEN_WIDTH;
 }
 
 inline void Vdc::plot(int x, int color)

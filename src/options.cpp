@@ -243,6 +243,8 @@ bool Options::parse(int argc, char **argv)
                 throw(runtime_error("Invalid Y resolution setting"));
         }
         parser.get(fullscreen, "fullscreen", "video");
+        parser.get(double_buffering, "double_buffering", "video");
+        parser.get(keep_aspect, "keep_aspect", "video");
 
         // debugger
         if (!debug_touched)
