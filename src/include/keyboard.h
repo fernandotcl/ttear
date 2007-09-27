@@ -43,13 +43,13 @@ inline SDLKey Keyboard::translate_key(SDLKey key) const
 
 inline void Keyboard::handle_key_down(const SDL_keysym &keysym)
 {
-    if (!(keysym.mod & KMOD_CAPS) && translate_key(keysym.sym) != SDLK_UNKNOWN)
+    if (translate_key(keysym.sym) != SDLK_UNKNOWN)
         pressed_ = keysym.sym;
 }
 
 inline void Keyboard::handle_key_up(const SDL_keysym &keysym)
 {
-    if (!(keysym.mod & KMOD_CAPS) && translate_key(keysym.sym) != SDLK_UNKNOWN)
+    if (translate_key(keysym.sym) != SDLK_UNKNOWN)
         pressed_ = SDLK_UNKNOWN;
 }
 

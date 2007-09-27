@@ -156,7 +156,7 @@ void VirtualMachine::run()
                             return;
                             break;
                         case SDL_KEYDOWN:
-                            if (!joysticks_.handle_key_down(event.key.keysym))
+                            if (event.key.keysym.mod & KMOD_CAPS || !joysticks_.handle_key_down(event.key.keysym))
                                 keyboard_.handle_key_down(event.key.keysym);
                             break;
                         case SDL_KEYUP:
@@ -179,7 +179,7 @@ void VirtualMachine::run()
                                     cout << "Reset the virtual machine" << endl;
                                     break;
                                 default:
-                                    if (!joysticks_.handle_key_up(event.key.keysym))
+                                    if (event.key.keysym.mod & KMOD_CAPS || !joysticks_.handle_key_up(event.key.keysym))
                                         keyboard_.handle_key_up(event.key.keysym);
                                     break;
                             }
