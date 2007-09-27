@@ -23,7 +23,9 @@ Options::Options()
     : pal_emulation(false),
       speed_limit(100),
       debug(false), debug_on_ill(true),
-      opengl(true), fullscreen(false), x_res(640), y_res(320)
+      opengl(true), x_res(640), y_res(320),
+      fullscreen(false), double_buffering(true),
+      keep_aspect(true), scaling_mode(SCALING_MODE_NEAREST)
 {
     controls[0].enabled = true;
     controls[0].left = SDLK_LEFT;
@@ -225,26 +227,40 @@ bool Options::parse(int argc, char **argv)
             string res;
             parser.get(res, "resolution", "video");
 
-            string::size_type x = res.find('x');
-            if (x == string::npos || x == 0 || x == res.size() - 1)
-                throw(runtime_error("Invalid resolution setting"));
+            if (!res.empty()) {
+                string::size_type x = res.find('x');
+                if (x == string::npos || x == 0 || x == res.size() - 1)
+                    throw(runtime_error("Invalid resolution setting"));
 
-            string x_str = trim(res.substr(0, x));
-            string y_str = trim(res.substr(x + 1));
-            istringstream iss;
-            iss.str(x_str);
-            iss >> x_res;
-            if (iss.fail())
-                throw(runtime_error("Invalid X resolution setting"));
-            iss.clear();
-            iss.str(y_str);
-            iss >> y_res;
-            if (iss.fail())
-                throw(runtime_error("Invalid Y resolution setting"));
+                string x_str = trim(res.substr(0, x));
+                string y_str = trim(res.substr(x + 1));
+                istringstream iss;
+                iss.str(x_str);
+                iss >> x_res;
+                if (iss.fail())
+                    throw(runtime_error("Invalid X resolution setting"));
+                iss.clear();
+                iss.str(y_str);
+                iss >> y_res;
+                if (iss.fail())
+                    throw(runtime_error("Invalid Y resolution setting"));
+            }
         }
         parser.get(fullscreen, "fullscreen", "video");
         parser.get(double_buffering, "double_buffering", "video");
         parser.get(keep_aspect, "keep_aspect", "video");
+        {
+            string mode;
+            parser.get(mode, "scaling_mode", "video");
+            if (!mode.empty()) {
+                if (mode == "nearest")
+                    scaling_mode = SCALING_MODE_NEAREST;
+                else if (mode == "linear")
+                    scaling_mode = SCALING_MODE_LINEAR;
+                else
+                    throw(runtime_error("Invalid scaling mode"));
+            }
+        }
 
         // debugger
         if (!debug_touched)

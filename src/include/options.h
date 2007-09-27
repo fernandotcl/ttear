@@ -20,14 +20,22 @@ class Options
         SDLKey parse_key(IniParser &parser, const string &name, const string &section);
 
     public:
+        typedef enum {
+            SCALING_MODE_NEAREST,
+            SCALING_MODE_LINEAR
+        } scaling_mode_t;
+
         string bios, rom;
         bool pal_emulation;
         unsigned int speed_limit;
 
         bool debug, debug_on_ill;
 
-        bool opengl, fullscreen, double_buffering, keep_aspect;
+        bool opengl;
         unsigned int x_res, y_res;
+        bool fullscreen, double_buffering;
+        bool keep_aspect;
+        scaling_mode_t scaling_mode;
 
         Joysticks::controls_t controls[2];
 

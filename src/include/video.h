@@ -16,15 +16,17 @@ class Video
         bool using_opengl_;
         bool using_temp_surface_;
 
-        union {
-            int scale_;
-            struct {
-                GLfloat x_proportion_;
-                GLfloat y_proportion_;
-            };
-        };
+        // Software scaling stuff
+        int scale_;
+        SDL_Surface *tmp_screen_;
 
-        SDL_Surface *real_screen_, *screen_, *tmp_screen_;
+        // OpenGL scaling stuff
+        int real_x_, real_y_;
+        int real_x_end_, real_y_end_;
+        const GLfloat texture_x_proportion_;
+        const GLfloat texture_y_proportion_;
+
+        SDL_Surface *real_screen_, *screen_;
         vector<Uint32> colormap_;
 
         template<typename T> void load_opengl_proc(T &var, const char *name);
@@ -56,6 +58,8 @@ class Video
 inline Video::Video()
     : using_opengl_(false),
       using_temp_surface_(false),
+      texture_x_proportion_(SCREEN_WIDTH / (GLfloat)SCREEN_WIDTH_POWER2),
+      texture_y_proportion_(SCREEN_HEIGHT / (GLfloat)SCREEN_HEIGHT_POWER2),
       colormap_(24)
 {
 }

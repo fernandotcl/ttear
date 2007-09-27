@@ -1,7 +1,3 @@
-// TODO Implement the GL_TEXTURE_RECTANGLE_ARB extension, if supported
-// TODO Implement GL_LINEAR
-// TODO Implement keep_aspect = false
-
 #include "globals.h"
 
 extern "C" {
@@ -115,14 +111,8 @@ inline void Video::initialize_colormap()
         {255, 255, 255}  // white
     };
 
-    if (using_opengl_) {
-        for (int i = 0; i < 24; ++i)
-            colormap_[i] = SDL_MapRGB(screen_->format, table[i][2], table[i][1], table[i][0]);
-    }
-    else {
-        for (int i = 0; i < 24; ++i)
-            colormap_[i] = SDL_MapRGB(screen_->format, table[i][0], table[i][1], table[i][2]);
-    }
+    for (int i = 0; i < 24; ++i)
+        colormap_[i] = SDL_MapRGB(screen_->format, table[i][0], table[i][1], table[i][2]);
 }
 
 void Video::set_video_mode()
@@ -180,8 +170,22 @@ void Video::init_software()
 
 void Video::init_opengl()
 {
-    x_proportion_ = SCREEN_WIDTH / (float)SCREEN_WIDTH_POWER2;
-    y_proportion_ = SCREEN_HEIGHT / (float)SCREEN_HEIGHT_POWER2;
+    if (g_options.keep_aspect) {
+        float x_scale = g_options.x_res / (float)SCREEN_WIDTH;
+        float y_scale = g_options.y_res / (float)SCREEN_HEIGHT;
+        float scale = x_scale < y_scale ? x_scale : y_scale;
+
+        real_x_ = (g_options.x_res - scale * SCREEN_WIDTH) / 2;
+        real_y_ = (g_options.y_res - scale * SCREEN_HEIGHT) / 2;
+        real_x_end_ = real_x_ + scale * SCREEN_WIDTH;
+        real_y_end_ = real_y_ + scale * SCREEN_HEIGHT;
+    }
+    else {
+        real_x_ = 0;
+        real_y_ = 0;
+        real_x_end_ = g_options.x_res;
+        real_y_end_ = g_options.y_res;
+    }
 
     s_glShadeModel(GL_FLAT);
     s_glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
@@ -202,10 +206,13 @@ void Video::init_opengl()
     GLuint texture;
     s_glGenTextures(1, &texture);
     s_glBindTexture(GL_TEXTURE_2D, texture);
-    s_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    s_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    {
+        GLenum mode = g_options.scaling_mode == Options::SCALING_MODE_NEAREST ? GL_NEAREST : GL_LINEAR;
+        s_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mode);
+        s_glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mode);
+    }
     s_glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCREEN_WIDTH_POWER2, SCREEN_HEIGHT_POWER2,
-            0, GL_RGBA, GL_UNSIGNED_BYTE, screen_->pixels);
+            0, GL_BGRA, GL_UNSIGNED_BYTE, screen_->pixels);
 
     s_glClear(GL_COLOR_BUFFER_BIT);
     if (g_options.double_buffering) {
@@ -309,17 +316,17 @@ void Video::blit_software()
 void Video::blit_opengl()
 {
     s_glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH_POWER2, SCREEN_HEIGHT_POWER2,
-            GL_RGBA, GL_UNSIGNED_BYTE, screen_->pixels);
+            GL_BGRA, GL_UNSIGNED_BYTE, screen_->pixels);
 
     s_glBegin(GL_QUADS);
         s_glTexCoord2f(0, 0);
-        s_glVertex2i(0, 0);
-        s_glTexCoord2f(x_proportion_, 0);
-        s_glVertex2i(g_options.x_res, 0);
-        s_glTexCoord2f(x_proportion_, y_proportion_);
-        s_glVertex2i(g_options.x_res, g_options.y_res);
-        s_glTexCoord2f(0, y_proportion_);
-        s_glVertex2i(0, g_options.y_res);
+        s_glVertex2i(real_x_, real_y_);
+        s_glTexCoord2f(texture_x_proportion_, 0);
+        s_glVertex2i(real_x_end_, real_y_);
+        s_glTexCoord2f(texture_x_proportion_, texture_y_proportion_);
+        s_glVertex2i(real_x_end_, real_y_end_);
+        s_glTexCoord2f(0, texture_y_proportion_);
+        s_glVertex2i(real_x_, real_y_end_);
     s_glEnd();
 
     SDL_GL_SwapBuffers();
