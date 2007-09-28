@@ -59,8 +59,7 @@ inline void Vdc::clear_line()
     if (g_p1 & (1 << 7))
         color += 8;
 
-    for (int x = 0; x < Framebuffer::SCREEN_WIDTH; ++x)
-        plot(x, color);
+    framebuffer_->setline(curline_, color);
 }
 
 inline void Vdc::draw_chars()

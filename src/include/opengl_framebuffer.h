@@ -7,7 +7,6 @@ extern "C" {
 #include <SDL_opengl.h>
 }
 #include <cstring>
-#include <vector>
 
 #include "framebuffer.h"
 
@@ -21,11 +20,16 @@ class OpenGLFramebuffer : public Framebuffer
 
         SDL_Surface *screen_, *buffer_;
         Uint32 *buffer_data_;
-        const int buffer_width_;
+        int buffer_width_;
+
+        bool arbrect_support_;
 
         Uint32 colormap_[COLORTABLE_SIZE];
 
-        const GLfloat texture_x_proportion_, texture_y_proportion_;
+        GLuint texture_;
+        GLenum texture_target_;
+        GLfloat texture_x_, texture_y_;
+        GLsizei texture_width_, texture_height_;
 
         template<typename T> void load_proc(T &var, const char *procname);
 
@@ -42,18 +46,8 @@ class OpenGLFramebuffer : public Framebuffer
 };
 
 inline OpenGLFramebuffer::OpenGLFramebuffer()
-    : screen_(NULL), buffer_(NULL),
-      buffer_width_(SCREEN_WIDTH_POWER2),
-      texture_x_proportion_((GLfloat)SCREEN_WIDTH / SCREEN_WIDTH_POWER2),
-      texture_y_proportion_((GLfloat)SCREEN_HEIGHT / SCREEN_HEIGHT_POWER2)
+    : screen_(NULL), buffer_(NULL)
 {
-}
-
-inline OpenGLFramebuffer::~OpenGLFramebuffer()
-{
-    //SDL_FreeSurface(buffer_);
-    //SDL_FreeSurface(temp_buffer_);
-    //TODO
 }
 
 inline void OpenGLFramebuffer::plot(int x, int y, int color)
@@ -63,7 +57,7 @@ inline void OpenGLFramebuffer::plot(int x, int y, int color)
 
 inline void OpenGLFramebuffer::setline(int y, int color)
 {
-    memset(buffer_data_ + y * SCREEN_WIDTH, colormap_[color], SCREEN_WIDTH * 4);
+    memset(buffer_data_ + y * buffer_width_, colormap_[color], SCREEN_WIDTH * 4);
 }
 
 #endif
