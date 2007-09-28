@@ -6,7 +6,7 @@
 extern "C" {
 #include <SDL_opengl.h>
 }
-#include <cstring>
+#include <algorithm>
 
 #include "framebuffer.h"
 
@@ -57,7 +57,7 @@ inline void OpenGLFramebuffer::plot(int x, int y, int color)
 
 inline void OpenGLFramebuffer::setline(int y, int color)
 {
-    memset(buffer_data_ + y * buffer_width_, colormap_[color], SCREEN_WIDTH * 4);
+    fill(buffer_data_ + y * buffer_width_, buffer_data_ + (y + 1) * buffer_width_, colormap_[color]);
 }
 
 #endif

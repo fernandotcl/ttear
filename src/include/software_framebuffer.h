@@ -3,7 +3,7 @@
 
 #include "globals.h"
 
-#include <cstring>
+#include <algorithm>
 #include <vector>
 
 #include "framebuffer.h"
@@ -54,7 +54,7 @@ inline void SoftwareFramebuffer::plot(int x, int y, int color)
 
 inline void SoftwareFramebuffer::setline(int y, int color)
 {
-    memset(buffer_data_ + y * SCREEN_WIDTH, colormap_[color], SCREEN_WIDTH * 4);
+    fill(buffer_data_ + y * SCREEN_WIDTH, buffer_data_ + (y + 1) * SCREEN_WIDTH, colormap_[color]);
 }
 
 #endif

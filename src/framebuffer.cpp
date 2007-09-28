@@ -8,7 +8,7 @@
 using namespace std;
 
 const uint8_t Framebuffer::colortable_[24][3] = {
-    // Light background or light grid colors
+    // Light background and grid colors
     { 95, 110, 107}, // dark gray
     {106, 161, 255}, // blue
     { 61, 240, 122}, // green
@@ -18,17 +18,17 @@ const uint8_t Framebuffer::colortable_[24][3] = {
     {217, 173,  93}, // yellow
     {255, 255, 255}, // white
 
-    // Dark background or dark grid colors
+    // Dark background and grid colors
     {  0,   0,   0}, // black
     { 14,  61, 212}, // dark blue
     {  0, 152,  27}, // dark green
     {  0, 187, 217}, // cyan
     {199,   0,   8}, // red
     {204,  22, 179}, // violet
-    {157, 1.0,  16}, // orange
+    {157, 135,  16}, // orange
     {225, 209, 225}, // light gray
 
-    // Sprite or char colors
+    // Sprite and char colors
     { 95, 110, 107}, // dark gray
     {255,  66,  85}, // red
     { 61, 240, 122}, // green
