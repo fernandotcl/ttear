@@ -8,13 +8,12 @@
 #include "cpu.h"
 #include "options.h"
 
-Vdc::Vdc(Video &video)
+Vdc::Vdc()
     : mem_(VDC_SIZE),
-      video_(video),
       first_drawing_scanline_(g_options.pal_emulation ? 72 : 22),
       entered_vblank_(false),
       collision_(8),
-      collision_table_(Video::SCREEN_WIDTH * Video::SCREEN_HEIGHT)
+      collision_table_(Framebuffer::SCREEN_WIDTH * Framebuffer::SCREEN_HEIGHT)
 {
 }
 
@@ -30,19 +29,19 @@ inline bool Vdc::grid_enabled() const
 
 inline bool Vdc::is_drawable(int x) const
 {
-    return x >= 0 && x <= Video::SCREEN_WIDTH;
+    return x >= 0 && x <= Framebuffer::SCREEN_WIDTH;
 }
 
 inline void Vdc::plot(int x, int color)
 {
-    video_.plot(x, curline_, color);
+    framebuffer_->plot(x, curline_, color);
 }
 
 inline void Vdc::plot(int x, int color, int coll_index)
 {
     plot(x, color);
 
-    uint8_t coll = collision_table_[curline_ * Video::SCREEN_WIDTH + x];
+    uint8_t coll = collision_table_[curline_ * Framebuffer::SCREEN_WIDTH + x];
 
     for (int i = 0; i < 8; ++i) {
         if (coll & 1 << i) {
@@ -51,7 +50,7 @@ inline void Vdc::plot(int x, int color, int coll_index)
         }
     }
 
-    collision_table_[curline_ * Video::SCREEN_WIDTH + x] |= 1 << coll_index;
+    collision_table_[curline_ * Framebuffer::SCREEN_WIDTH + x] |= 1 << coll_index;
 }
 
 inline void Vdc::clear_line()
@@ -60,7 +59,7 @@ inline void Vdc::clear_line()
     if (g_p1 & (1 << 7))
         color += 8;
 
-    for (int x = 0; x < Video::SCREEN_WIDTH; ++x)
+    for (int x = 0; x < Framebuffer::SCREEN_WIDTH; ++x)
         plot(x, color);
 }
 
@@ -251,7 +250,7 @@ inline uint8_t Vdc::calculate_collisions()
 inline void Vdc::clear_collisions()
 {
     bzero(&collision_[0], 8);
-    bzero(&collision_table_[0], Video::SCREEN_WIDTH * Video::SCREEN_HEIGHT);
+    bzero(&collision_table_[0], Framebuffer::SCREEN_WIDTH * Framebuffer::SCREEN_HEIGHT);
 }
 
 uint8_t Vdc::read(uint8_t offset)
@@ -360,7 +359,7 @@ void Vdc::step()
         ++scanlines_;
         curline_ = scanlines_ - first_drawing_scanline_;
 
-        if (curline_ == Video::SCREEN_HEIGHT) {
+        if (curline_ == Framebuffer::SCREEN_HEIGHT) {
             // Entered VBLANK
             entered_vblank_ = true;
 
@@ -369,7 +368,7 @@ void Vdc::step()
             curline_ = scanlines_ - first_drawing_scanline_;
 
             // Do the blitting
-            video_.blit();
+            framebuffer_->blit();
 
             mem_[VDC_STATUS_REGISTER] |= 1 << 3;
             g_t1 = true;

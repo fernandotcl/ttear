@@ -5,6 +5,7 @@
 
 #include "cpu.h"
 #include "extstorage.h"
+#include "framebuffer.h"
 #include "joysticks.h"
 #include "keyboard.h"
 #include "rom.h"
@@ -16,7 +17,7 @@ class VirtualMachine
         static const int UNPOLLED_FRAMES = 6;
 
         Rom rom_;
-        Video video_;
+        Framebuffer *framebuffer_;
         Vdc vdc_;
         ExternalStorage extstorage_;
         Keyboard keyboard_;

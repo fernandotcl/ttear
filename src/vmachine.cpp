@@ -7,14 +7,15 @@
 
 #include "vmachine.h"
 
+#include "opengl_framebuffer.h"
 #include "options.h"
+#include "software_framebuffer.h"
 #include "speedlimit.h"
 
 using namespace std;
 
 VirtualMachine::VirtualMachine(const char *romfile, const char *biosfile)
-    : vdc_(video_),
-      extstorage_(vdc_),
+    : extstorage_(vdc_),
       cpu_(rom_, extstorage_, keyboard_, joysticks_)
 {
     rom_.load(romfile, biosfile);
@@ -27,10 +28,31 @@ VirtualMachine::VirtualMachine(const char *romfile, const char *biosfile)
         if (SDL_Init(SDL_INIT_VIDEO) < 0)
             throw(runtime_error(SDL_GetError()));
     }
+
+    SDL_ShowCursor(SDL_DISABLE);
     SDL_EnableKeyRepeat(0, 0);
 
-    video_.init();
-    vdc_.init(&cpu_);
+    if (g_options.opengl) {
+        framebuffer_ = new OpenGLFramebuffer;
+        try {
+            framebuffer_->init();
+        }
+        catch (exception &e) {
+            LOGWARNING << "Unable to initialize the OpenGL framebuffer: " << e.what() << endl;
+            LOGWARNING << "Falling back to software rendering mode" << endl;
+            delete framebuffer_;
+            framebuffer_ = new SoftwareFramebuffer;
+        }
+    }
+    else {
+        framebuffer_ = new SoftwareFramebuffer;
+        framebuffer_->init();
+    }
+    SDL_WM_SetCaption(PACKAGE_NAME " " PACKAGE_VERSION, PACKAGE_NAME);
+    if (g_options.debug)
+        SDL_WM_IconifyWindow();
+
+    vdc_.init(framebuffer_, &cpu_);
     reset();
 }
 

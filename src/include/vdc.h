@@ -3,11 +3,10 @@
 
 #include "globals.h"
 
-#include <iostream>
 #include <vector>
 
 #include "util.h"
-#include "video.h"
+#include "framebuffer.h"
 
 using namespace std;
 
@@ -50,7 +49,7 @@ class Vdc
 
         vector<uint8_t> mem_;
         Cpu *cpu_;
-        Video &video_;
+        Framebuffer *framebuffer_;
 
         int clock_;
         int scanlines_, curline_;
@@ -84,9 +83,9 @@ class Vdc
         uint8_t latched_x_, latched_y_;
 
     public:
-        Vdc(Video &video);
+        Vdc();
 
-        void init(Cpu *cpu);
+        void init(Framebuffer *framebuffer, Cpu *cpu);
 
         void reset();
         void step();
@@ -99,8 +98,9 @@ class Vdc
         void write(uint8_t offset, uint8_t value);
 };
 
-inline void Vdc::init(Cpu *cpu)
+inline void Vdc::init(Framebuffer *framebuffer, Cpu *cpu)
 {
+    framebuffer_ = framebuffer;
     cpu_ = cpu;
 }
 
