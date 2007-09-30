@@ -1,5 +1,5 @@
 ### Initialization macros
-AC_INIT(ttear, 0.6-pre, fernandotcl@users.berlios.de)
+AC_INIT([Take the Emulator and Run!], 0.6-pre, fernandotcl@users.berlios.de)
 AC_PREREQ(2.59)
 AC_LANG(C++)
 AC_CONFIG_SRCDIR(src/main.cpp)
@@ -30,6 +30,19 @@ AC_PROG_CXX
 AC_CHECK_PROG(sdl_config_exists, sdl-config, true)
 if test ! "x$sdl_config_exists" = 'xtrue'; then
     AC_MSG_ERROR([Unable to find sdl-config, make sure it's in your \$PATH])
+fi
+
+# svnversion
+if test -d '.svn'; then
+    AC_CHECK_PROG(svnversion_exists, svnversion, true)
+    if test "x$svnversion_exists" = 'xtrue'; then
+        revision="r`svnversion -n`"
+        new_rev=`echo $revision | cut -d: -f2`
+        test ! "x$new_rev" = 'x' && revision="$new_rev"
+    else
+        revision='unknown revision'
+    fi
+    AC_DEFINE_UNQUOTED(SVN_REVISION, "$revision", [The SVN revision])
 fi
 
 ### Compile-time options

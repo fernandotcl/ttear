@@ -15,6 +15,14 @@ extern "C" {
 #include "iniparser.h"
 #include "joysticks.h"
 
+#ifdef SVN_REVISION
+# define VERSION_STRING "revision " SVN_REVISION
+# define SHORT_VERSION_STRING "r" SVN_REVISION
+#else
+# define VERSION_STRING "version " PACKAGE_VERSION
+# define SHORT_VERSION_STRNG "v" PACKAGE_VERSION
+#endif
+
 using namespace std;
 
 Options g_options;
@@ -23,7 +31,7 @@ Options::Options()
     : pal_emulation(false),
       speed_limit(100),
       debug(false), debug_on_ill(true),
-      opengl(true), x_res(640), y_res(320),
+      opengl(true), x_res(640), y_res(480),
       fullscreen(false), double_buffering(true),
       keep_aspect(true), scaling_mode(SCALING_MODE_NEAREST)
 {
@@ -93,7 +101,7 @@ Options::Options()
 
 void Options::show_usage(const char *progname, ostream &out)
 {
-    out << PACKAGE_NAME " version " << PACKAGE_VERSION " - Odyssey^2/G7000 emulator\n"
+    out << PACKAGE_NAME " " VERSION_STRING " - Odyssey^2/G7000 emulator\n"
            "(C) 2007 - Fernando T. C. Lemos\n"
            "Distributed under the terms of the zlib/libpng license\n"
            "Check the LICENSE file in the source distribution root for details\n"
@@ -165,7 +173,7 @@ bool Options::parse(int argc, char **argv)
 #endif
         switch (c) {
             case 'V':
-                cout << PACKAGE_VERSION << endl;
+                cout << SHORT_VERSION_STRING << endl;
                 return false;
                 break;
             case 'b':
