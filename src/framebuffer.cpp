@@ -47,10 +47,10 @@ Framebuffer::Framebuffer()
     if (g_options.keep_aspect) {
         float scale = window_size_.x_scale < window_size_.y_scale ? window_size_.x_scale : window_size_.y_scale;
 
-        window_size_.x = (g_options.x_res - scale * SCREEN_WIDTH) / 2;
-        window_size_.y = (g_options.y_res - scale * SCREEN_HEIGHT) / 2;
-        window_size_.x_end = window_size_.x + scale * SCREEN_WIDTH;
-        window_size_.y_end = window_size_.y + scale * SCREEN_HEIGHT;
+        window_size_.x = (unsigned int)((g_options.x_res - scale * SCREEN_WIDTH) / 2);
+        window_size_.y = (unsigned int)((g_options.y_res - scale * SCREEN_HEIGHT) / 2);
+        window_size_.x_end = (unsigned int)(window_size_.x + scale * SCREEN_WIDTH);
+        window_size_.y_end = (unsigned int)(window_size_.y + scale * SCREEN_HEIGHT);
         window_size_.x_scale = window_size_.y_scale = scale;
     }
     else {

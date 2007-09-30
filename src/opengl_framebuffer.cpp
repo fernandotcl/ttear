@@ -11,6 +11,10 @@ extern "C" {
 
 #include "options.h"
 
+#ifndef GLAPIENTRY
+# define GLAPIENTRY
+#endif
+
 typedef const GLubyte *(GLAPIENTRY *glGetString_t)(GLenum);
 typedef void (GLAPIENTRY *glEnable_t)(GLenum);
 typedef void (GLAPIENTRY *glDisable_t)(GLenum);

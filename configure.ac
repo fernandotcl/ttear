@@ -26,10 +26,10 @@ add_compiler_opts -Wall -Werror
 AC_PROG_CC
 AC_PROG_CXX
 
-# pkg-config
-AC_CHECK_PROG(pkg_config_exists, pkg-config, true)
-if test ! "x$pkg_config_exists" = 'xtrue'; then
-    AC_MSG_ERROR([Unable to find pkg-config, make sure it's in your \$PATH])
+# sdl-config
+AC_CHECK_PROG(sdl_config_exists, sdl-config, true)
+if test ! "x$sdl_config_exists" = 'xtrue'; then
+    AC_MSG_ERROR([Unable to find sdl-config, make sure it's in your \$PATH])
 fi
 
 ### Compile-time options
@@ -47,18 +47,18 @@ fi
 
 ### Libraries
 # SDL
-LIBS="$LIBS `pkg-config --libs sdl`"
+LIBS="$LIBS `sdl-config --libs`"
 
 ### Headers
 AC_CHECK_HEADERS([sys/time.h getopt.h time.h])
 
 # SDL
-sdl_includes=`pkg-config --cflags sdl`
+sdl_includes=`sdl-config --cflags`
 AC_SUBST(sdl_includes)
 
 ### Functions
-AC_CHECK_FUNCS([getopt_long gettimeofday])
-AC_CHECK_FUNCS([bzero memset strchr strdup], [], [AC_MSG_ERROR([Required function is missing])])
+AC_CHECK_FUNCS([bzero getopt_long gettimeofday])
+AC_CHECK_FUNCS([memset strchr strdup], [], [AC_MSG_ERROR([Required function is missing])])
 
 ### Types, compiler characterists
 AC_C_CONST

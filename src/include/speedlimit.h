@@ -30,7 +30,7 @@ class SpeedLimit
 };
 
 inline SpeedLimit::SpeedLimit()
-    : ticks_per_frame_(1000000 / ((g_options.pal_emulation ? 50 : 60) * g_options.speed_limit / 100.0)),
+    : ticks_per_frame_((uint32_t)(1000000 / ((g_options.pal_emulation ? 50 : 60) * g_options.speed_limit / 100.0))),
       last_ticks_(get_ticks()),
       delta_(0)
 {

@@ -1,5 +1,6 @@
 #include "globals.h"
 
+#include <cstdlib>
 #include <iostream>
 #include <stdexcept>
 
@@ -33,4 +34,6 @@ int main(int argc, char **argv)
         cerr << "Send bug reports to " << PACKAGE_BUGREPORT << endl;
         return EXIT_FAILURE;
     }
+
+    return EXIT_SUCCESS;
 }

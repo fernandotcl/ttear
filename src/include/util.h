@@ -9,6 +9,13 @@
 
 using namespace std;
 
+#ifndef HAVE_BZERO
+static inline void bzero(void *dst, size_t len)
+{
+    memset(dst, 0, len * sizeof(char));
+}
+#endif
+
 template<typename T> void dump_memory(ostream &out, const T mem, size_t len)
 {
     out << setfill('0') << hex;
