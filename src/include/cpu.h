@@ -99,7 +99,6 @@ class Cpu
         // Interrupts
         bool extirq_en_, tcntirq_en_;
         bool extirq_pending_, tcntirq_pending_;
-        int extirq_timer_;
         bool in_irq_;
 
         Keyboard &keyboard_;
@@ -155,7 +154,6 @@ inline void Cpu::reset()
 
     extirq_en_ = tcntirq_en_ = false;
     extirq_pending_ = tcntirq_pending_ = false;
-    extirq_timer_ = 0;
     in_irq_ = false;
 
     tcnt_status_ = TCNT_STATUS_ALL_OFF;

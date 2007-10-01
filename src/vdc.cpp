@@ -10,7 +10,7 @@
 
 Vdc::Vdc()
     : mem_(VDC_SIZE),
-      first_drawing_scanline_(g_options.pal_emulation ? 72 : 22),
+      first_drawing_scanline_(g_options.pal_emulation ? 71 : 21),
       entered_vblank_(false),
       collision_(8),
       collision_table_(Framebuffer::SCREEN_WIDTH * Framebuffer::SCREEN_HEIGHT)
@@ -83,11 +83,11 @@ inline void Vdc::draw_chars()
             if (bitfield & 1 << 7 - i) {
                 int plot_x = (x + i) * 2 + FOREGROUND_HORIZONTAL_OFFSET;
                 if (!is_drawable(plot_x))
-                    break;
+                    continue;
                 plot(plot_x, color, VDC_COLLISION_CHAR);
                 ++plot_x;
                 if (!is_drawable(plot_x))
-                    break;
+                    continue;
                 plot(plot_x, color, VDC_COLLISION_CHAR);
             }
         }
@@ -128,11 +128,11 @@ inline void Vdc::draw_quads()
                 if (bitfield & 1 << 7 - i) {
                     int plot_x = (x + i) * 2 + FOREGROUND_HORIZONTAL_OFFSET;
                     if (!is_drawable(plot_x))
-                        break;
+                        continue;
                     plot(plot_x, color, VDC_COLLISION_CHAR);
                     ++plot_x;
                     if (!is_drawable(plot_x))
-                        break;
+                        continue;
                     plot(plot_x, color, VDC_COLLISION_CHAR);
                 }
             }
@@ -167,17 +167,12 @@ inline void Vdc::draw_sprites()
         uint8_t bitfield = shape[y_off / multiplier];
         for (int k = 0; k < 8; ++k) {
             if (bitfield & 1 << k) {
-                bool break_outer = false;
                 for (int j = 0; j < multiplier; ++j) {
                     int plot_x = x * 2 + k * multiplier + shift + j + FOREGROUND_HORIZONTAL_OFFSET;
-                    if (!is_drawable(plot_x)) {
-                        break_outer = true;
-                        break;
-                    }
+                    if (!is_drawable(plot_x))
+                        continue;
                     plot(plot_x, color, i);
                 }
-                if (break_outer)
-                    break;
             }
         }
     }
@@ -270,7 +265,7 @@ uint8_t Vdc::read(uint8_t offset)
             val = mem_[VDC_CONTROL_REGISTER] & 1 << 1 ? latched_y_ : curline_;
             break;
         case VDC_X_REGISTER:
-            val = mem_[VDC_CONTROL_REGISTER] & 1 << 1 ? latched_x_ : clock_ * 256 / cycles_per_scanline_;
+            val = mem_[VDC_CONTROL_REGISTER] & 1 << 1 ? latched_x_ : clock_ * 160 / cycles_per_scanline_;
             break;
         default:
             return mem_[offset];
@@ -301,7 +296,7 @@ void Vdc::write(uint8_t offset, uint8_t value)
     else {
         if (offset == VDC_CONTROL_REGISTER) {
             if (value & 1 << 1) {
-                latched_x_ = clock_ * 256 / cycles_per_scanline_;
+                latched_x_ = clock_ * 160 / cycles_per_scanline_;
                 latched_y_ = curline_;
             }
         }
@@ -325,36 +320,15 @@ void Vdc::step()
 {
     clock_ += cycles_per_scanline_unit_;
 
-    if (hblank_timer_ && !--hblank_timer_)
-        mem_[VDC_STATUS_REGISTER] |= 1 << 0; // out of HBLANK
+    if (hblank_timer_ && !--hblank_timer_) {
+        // Out of HBLANK
+        mem_[VDC_STATUS_REGISTER] |= 1 << 0;
+        cpu_->counter_increment();
+    }
 
     if (clock_ >= cycles_per_scanline_) {
-        // Done "rendering" the line
         clock_ -= cycles_per_scanline_;
 
-        // Do the drawing
-        if (curline_ >= 0) {
-            clear_line();
-
-            if (grid_enabled())
-                draw_grid();
-
-            if (foreground_enabled()) {
-                draw_chars();
-                draw_quads();
-                draw_sprites();
-            }
-
-            cpu_->counter_increment();
-
-            if (mem_[VDC_CONTROL_REGISTER] & 1 << 0)
-                cpu_->external_irq(); // fire HBLANK IRQ
-
-            hblank_timer_ = 3; // HBLANK consumes at least 3 VDC cycles (~12.6 us)
-            mem_[VDC_STATUS_REGISTER] &= ~(1 << 0);
-        }
-
-        // Advance the current line
         ++scanlines_;
         curline_ = scanlines_ - first_drawing_scanline_;
 
@@ -383,6 +357,29 @@ void Vdc::step()
         }
         else if (g_options.pal_emulation && scanlines_ == 21) { // clear external IRQ on line 21 for PAL systems
             cpu_->clear_external_irq();
+        }
+
+        if (curline_ >= 0) {
+            clear_line();
+
+            if (grid_enabled())
+                draw_grid();
+
+            if (foreground_enabled()) {
+                draw_chars();
+                draw_quads();
+                draw_sprites();
+            }
+
+            // Got into HBLANK
+            if (curline_ != 0) {
+                // If we have drawn a line already, enter HBLANK
+                hblank_timer_ = 3; // HBLANK lasts for at least 3 VDC cycles (~12.6 us)
+                mem_[VDC_STATUS_REGISTER] &= ~(1 << 0);
+
+                if (mem_[VDC_CONTROL_REGISTER] & 1 << 0)
+                    cpu_->external_irq();
+            }
         }
     }
 }

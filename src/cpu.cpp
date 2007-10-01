@@ -127,7 +127,6 @@ int Cpu::step()
 {
     if (!in_irq_) {
         if (extirq_pending_) {
-            extirq_timer_ = 5;
             irq(CPU_EXTIRQ_INTERRUPT_VECTOR);
             return 2;
         }
@@ -314,7 +313,7 @@ int Cpu::step()
             break;
         case 0x37: // CPL A
             acc_ ^= 0xff;
-            clock = 2;
+            clock = 1;
             break;
         case 0x39: // OUTL P1, A
             g_p1 = acc_;
@@ -383,7 +382,7 @@ int Cpu::step()
 #define ANL_A_RPTR(n) \
         case 0x50 + n: \
             acc_ &= intram_[r(n) & INTRAM_SIZE - 1]; \
-            clock = 2; \
+            clock = 1; \
             break;
         // ANL A, @Rn
         ANL_A_RPTR(0)
@@ -481,7 +480,7 @@ int Cpu::step()
 #define ADDC_A_RPTR(n) \
         case 0x70 + n: \
             addc(intram_[r(n) & INTRAM_SIZE - 1]); \
-            clock = 2; \
+            clock = 1; \
             break;
         // ADDC A, @Rn
         ADDC_A_RPTR(0)
@@ -539,7 +538,7 @@ int Cpu::step()
             clock = 1;
             break;
         case 0x86: // JNI
-            jmp_if(extirq_timer_ > 0);
+            jmp_if(extirq_pending_);
             clock = 2;
             break;
         case 0x89: // ORL P1, #data
@@ -548,7 +547,6 @@ int Cpu::step()
             clock = 2;
             break;
         case 0x8a: // ORL P2, #data
-            keyboard_.calculate_p2();
             g_p2 |= rom_[pc_++];
             clock = 2;
             break;
@@ -603,7 +601,6 @@ int Cpu::step()
             clock = 2;
             break;
         case 0x9a: // ANL P2, #data
-            keyboard_.calculate_p2();
             g_p2 &= rom_[pc_++];
             clock = 2;
             break;
@@ -857,13 +854,6 @@ int Cpu::step()
             clock = 1;
             break;
     }
-
-    // extirq_timer_ is set to 5 8048 clocks when an external interrupt is serviced, which is for how many cycles we
-    // consider the machine in external interrupt state (JNI uses this)
-    if (extirq_timer_ > 0)
-        extirq_timer_ -= clock;
-    else
-        extirq_timer_ = 0;
 
     if (tcnt_status_ == TCNT_STATUS_TIMER_ON) {
         // Increment the timer every 32 8048 cycles

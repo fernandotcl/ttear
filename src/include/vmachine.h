@@ -14,7 +14,7 @@
 class VirtualMachine
 {
     private:
-        static const int UNPOLLED_FRAMES = 6;
+        static const int UNPOLLED_FRAMES = 3;
 
         Rom rom_;
         Framebuffer *framebuffer_;
