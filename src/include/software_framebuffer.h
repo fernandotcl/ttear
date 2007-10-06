@@ -29,7 +29,7 @@ class SoftwareFramebuffer : public Framebuffer
         void init();
 
         void plot(int x, int y, int color);
-        void setline(int y, int color);
+        void setline(int x1, int x2, int y, int color);
 
         void blit();
 };
@@ -52,9 +52,9 @@ inline void SoftwareFramebuffer::plot(int x, int y, int color)
     buffer_data_[y * SCREEN_WIDTH + x] = colormap_[color];
 }
 
-inline void SoftwareFramebuffer::setline(int y, int color)
+inline void SoftwareFramebuffer::setline(int x1, int x2, int y, int color)
 {
-    fill(buffer_data_ + y * SCREEN_WIDTH, buffer_data_ + (y + 1) * SCREEN_WIDTH, colormap_[color]);
+    fill(buffer_data_ + y * SCREEN_WIDTH + x1, buffer_data_ + y * SCREEN_WIDTH + x2, colormap_[color]);
 }
 
 #endif

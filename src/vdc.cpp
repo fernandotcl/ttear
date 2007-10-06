@@ -13,8 +13,16 @@ Vdc::Vdc()
       first_drawing_scanline_(g_options.pal_emulation ? 71 : 21),
       entered_vblank_(false),
       collision_(8),
-      collision_table_(Framebuffer::SCREEN_WIDTH * Framebuffer::SCREEN_HEIGHT)
+      collision_table_(COLLISION_TABLE_WIDTH * COLLISION_TABLE_HEIGHT),
+      visible_pixels_(CYCLES_PER_SCANLINE + CYCLES_PER_SCANLINE_UNIT * 2)
 {
+    int hblank_units = HBLANK_TIMER_INITIAL_VALUE * CYCLES_PER_SCANLINE_UNIT;
+    float increment = (float)Framebuffer::SCREEN_WIDTH / (CYCLES_PER_SCANLINE - hblank_units);
+    for (int i = hblank_units; i <= CYCLES_PER_SCANLINE + CYCLES_PER_SCANLINE_UNIT * 2; ++i) {
+        visible_pixels_[i] = (int)((i - hblank_units) * increment);
+        if (visible_pixels_[i] > Framebuffer::SCREEN_WIDTH)
+            visible_pixels_[i] = Framebuffer::SCREEN_WIDTH;
+    }
 }
 
 inline bool Vdc::foreground_enabled() const
@@ -29,7 +37,12 @@ inline bool Vdc::grid_enabled() const
 
 inline bool Vdc::is_drawable(int x) const
 {
-    return x >= 0 && x <= Framebuffer::SCREEN_WIDTH;
+    return x >= visible_pixels_[clock_] && x < visible_pixels_[clock_ + CYCLES_PER_SCANLINE_UNIT];
+}
+
+inline bool Vdc::should_check_collisions(int x) const
+{
+    return x >= 0 && x <= COLLISION_TABLE_WIDTH;
 }
 
 inline void Vdc::plot(int x, int color)
@@ -37,20 +50,23 @@ inline void Vdc::plot(int x, int color)
     framebuffer_->plot(x, curline_, color);
 }
 
-inline void Vdc::plot(int x, int color, int coll_index)
+inline void Vdc::plot(int x, int color, int coll_index, bool check_bounds)
 {
-    plot(x, color);
+    if (is_drawable(x))
+        plot(x, color);
 
-    uint8_t coll = collision_table_[curline_ * Framebuffer::SCREEN_WIDTH + x];
+    if (!check_bounds || should_check_collisions(x)) {
+        uint8_t coll = collision_table_[curline_ * Framebuffer::SCREEN_WIDTH + x];
 
-    for (int i = 0; i < 8; ++i) {
-        if (coll & 1 << i) {
-            collision_[i] |= 1 << coll_index;
-            collision_[coll_index] |= 1 << i;
+        for (int i = 0; i < 8; ++i) {
+            if (coll & 1 << i) {
+                collision_[i] |= 1 << coll_index;
+                collision_[coll_index] |= 1 << i;
+            }
         }
-    }
 
-    collision_table_[curline_ * Framebuffer::SCREEN_WIDTH + x] |= 1 << coll_index;
+        collision_table_[curline_ * Framebuffer::SCREEN_WIDTH + x] |= 1 << coll_index;
+    }
 }
 
 inline void Vdc::clear_line()
@@ -59,7 +75,7 @@ inline void Vdc::clear_line()
     if (g_p1 & (1 << 7))
         color += 8;
 
-    framebuffer_->setline(curline_, color);
+    framebuffer_->setline(visible_pixels_[clock_], visible_pixels_[clock_ + CYCLES_PER_SCANLINE_UNIT], curline_, color);
 }
 
 inline void Vdc::draw_chars()
@@ -82,12 +98,7 @@ inline void Vdc::draw_chars()
         for (int i = 0; i < 8; ++i) {
             if (bitfield & 1 << 7 - i) {
                 int plot_x = (x + i) * 2 + FOREGROUND_HORIZONTAL_OFFSET;
-                if (!is_drawable(plot_x))
-                    continue;
-                plot(plot_x, color, VDC_COLLISION_CHAR);
-                ++plot_x;
-                if (!is_drawable(plot_x))
-                    continue;
+                plot(plot_x++, color, VDC_COLLISION_CHAR);
                 plot(plot_x, color, VDC_COLLISION_CHAR);
             }
         }
@@ -127,12 +138,7 @@ inline void Vdc::draw_quads()
             for (int i = 0; i < 8; ++i) {
                 if (bitfield & 1 << 7 - i) {
                     int plot_x = (x + i) * 2 + FOREGROUND_HORIZONTAL_OFFSET;
-                    if (!is_drawable(plot_x))
-                        continue;
-                    plot(plot_x, color, VDC_COLLISION_CHAR);
-                    ++plot_x;
-                    if (!is_drawable(plot_x))
-                        continue;
+                    plot(plot_x++, color, VDC_COLLISION_CHAR);
                     plot(plot_x, color, VDC_COLLISION_CHAR);
                 }
             }
@@ -169,8 +175,6 @@ inline void Vdc::draw_sprites()
             if (bitfield & 1 << k) {
                 for (int j = 0; j < multiplier; ++j) {
                     int plot_x = x * 2 + k * multiplier + shift + j + FOREGROUND_HORIZONTAL_OFFSET;
-                    if (!is_drawable(plot_x))
-                        continue;
                     plot(plot_x, color, i);
                 }
             }
@@ -196,7 +200,7 @@ inline void Vdc::draw_grid()
         for (int i = 0; i < 9; ++i) {
             if (mem_[VDC_HORIZONTAL_GRID9_START + i] & (1 << 0)) {
                 for (int j = 0; j < 36; ++j) // 36 pixels wide (32 + 4)
-                    plot(i * 32 + j + GRID_HORIZONTAL_OFFSET, color, VDC_COLLISION_HGRID);
+                    plot(i * 32 + j + GRID_HORIZONTAL_OFFSET, color, VDC_COLLISION_HGRID, false);
             }
         }
     }
@@ -209,7 +213,7 @@ inline void Vdc::draw_grid()
             uint8_t bitfield = mem_[VDC_HORIZONTAL_GRID_START + i];
             if (bitfield & 1 << (cur / 24)) {
                 for (int j = 0; j < 36; ++j) // 36 pixels wide (32 + 4)
-                    plot(i * 32 + j + GRID_HORIZONTAL_OFFSET, color, VDC_COLLISION_HGRID);
+                    plot(i * 32 + j + GRID_HORIZONTAL_OFFSET, color, VDC_COLLISION_HGRID, false);
             }
         }
     }
@@ -222,7 +226,7 @@ inline void Vdc::draw_grid()
         uint8_t bitfield = mem_[VDC_VERTICAL_GRID_START + i];
         if (bitfield & 1 << (cur / 24)) {
             for (int j = 0; j < vert_width; ++j)
-                plot(i * 32 + GRID_HORIZONTAL_OFFSET + j, color, VDC_COLLISION_VGRID);
+                plot(i * 32 + GRID_HORIZONTAL_OFFSET + j, color, VDC_COLLISION_VGRID, false);
         }
     }
 }
@@ -244,7 +248,7 @@ inline uint8_t Vdc::calculate_collisions()
 inline void Vdc::clear_collisions()
 {
     bzero(&collision_[0], 8);
-    bzero(&collision_table_[0], Framebuffer::SCREEN_WIDTH * Framebuffer::SCREEN_HEIGHT);
+    bzero(&collision_table_[0], COLLISION_TABLE_WIDTH * COLLISION_TABLE_HEIGHT);
 }
 
 uint8_t Vdc::read(uint8_t offset)
@@ -265,7 +269,7 @@ uint8_t Vdc::read(uint8_t offset)
             val = mem_[VDC_CONTROL_REGISTER] & 1 << 1 ? latched_y_ : curline_;
             break;
         case VDC_X_REGISTER:
-            val = mem_[VDC_CONTROL_REGISTER] & 1 << 1 ? latched_x_ : clock_ * 160 / cycles_per_scanline_;
+            val = mem_[VDC_CONTROL_REGISTER] & 1 << 1 ? latched_x_ : clock_ * 160 / CYCLES_PER_SCANLINE;
             break;
         default:
             return mem_[offset];
@@ -296,7 +300,7 @@ void Vdc::write(uint8_t offset, uint8_t value)
     else {
         if (offset == VDC_CONTROL_REGISTER) {
             if (value & 1 << 1) {
-                latched_x_ = clock_ * 160 / cycles_per_scanline_;
+                latched_x_ = clock_ * 160 / CYCLES_PER_SCANLINE;
                 latched_y_ = curline_;
             }
         }
@@ -310,24 +314,21 @@ void Vdc::reset()
     clock_ = 0;
     scanlines_ = 0;
     curline_ = scanlines_ - first_drawing_scanline_;
-    hblank_timer_ = 0;
+    hblank_timer_ = HBLANK_TIMER_INITIAL_VALUE;
 
     bzero(&mem_[0], VDC_SIZE);
     clear_collisions();
 }
 
+inline bool Vdc::in_hblank() const
+{
+    return hblank_timer_;
+}
+
 void Vdc::step()
 {
-    clock_ += cycles_per_scanline_unit_;
-
-    if (hblank_timer_ && !--hblank_timer_) {
-        // Out of HBLANK
-        mem_[VDC_STATUS_REGISTER] |= 1 << 0;
-        cpu_->counter_increment();
-    }
-
-    if (clock_ >= cycles_per_scanline_) {
-        clock_ -= cycles_per_scanline_;
+    if (clock_ >= CYCLES_PER_SCANLINE) {
+        clock_ -= CYCLES_PER_SCANLINE;
 
         ++scanlines_;
         curline_ = scanlines_ - first_drawing_scanline_;
@@ -359,27 +360,33 @@ void Vdc::step()
             cpu_->clear_external_irq();
         }
 
-        if (curline_ >= 0) {
-            clear_line();
+        if (curline_ > 0) {
+            hblank_timer_ = HBLANK_TIMER_INITIAL_VALUE;
+            mem_[VDC_STATUS_REGISTER] &= ~(1 << 0);
 
-            if (grid_enabled())
-                draw_grid();
-
-            if (foreground_enabled()) {
-                draw_chars();
-                draw_quads();
-                draw_sprites();
-            }
-
-            // Got into HBLANK
-            if (curline_ != 0) {
-                // If we have drawn a line already, enter HBLANK
-                hblank_timer_ = 3; // HBLANK lasts for at least 3 VDC cycles (~12.6 us)
-                mem_[VDC_STATUS_REGISTER] &= ~(1 << 0);
-
-                if (mem_[VDC_CONTROL_REGISTER] & 1 << 0)
-                    cpu_->external_irq();
-            }
+            if (mem_[VDC_CONTROL_REGISTER] & 1 << 0)
+                cpu_->external_irq();
         }
     }
+    else if (curline_ >= 0) {
+        clear_line();
+
+        if (grid_enabled())
+            draw_grid();
+
+        if (!in_hblank() && foreground_enabled()) {
+            draw_chars();
+            draw_quads();
+            draw_sprites();
+        }
+    }
+
+    if (hblank_timer_ && !--hblank_timer_) {
+        // Out of HBLANK
+        mem_[VDC_STATUS_REGISTER] |= 1 << 0;
+        cpu_->counter_increment();
+    }
+
+
+    clock_ += CYCLES_PER_SCANLINE_UNIT;
 }

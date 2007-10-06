@@ -44,8 +44,16 @@ class Vdc
         static const int VDC_SCREEN_WIDTH = 320;
         static const int VDC_SCREEN_HEIGHT = 240;
 
-        static const int GRID_HORIZONTAL_OFFSET = 13;
-        static const int FOREGROUND_HORIZONTAL_OFFSET = -3;
+        static const int GRID_HORIZONTAL_OFFSET = 24;
+        static const int FOREGROUND_HORIZONTAL_OFFSET = 8;
+
+        static const int COLLISION_TABLE_WIDTH = 368;
+        static const int COLLISION_TABLE_HEIGHT = Framebuffer::SCREEN_HEIGHT;
+
+        static const int CYCLES_PER_SCANLINE = 152;     // 15.2 cycles per scanline
+        static const int CYCLES_PER_SCANLINE_UNIT = 10; // it's pseudo-fixed-point math
+
+        static const int HBLANK_TIMER_INITIAL_VALUE = 3; // 3 cycles, 12.6us, pretty close to 12.4us
 
         vector<uint8_t> mem_;
         Cpu *cpu_;
@@ -55,8 +63,6 @@ class Vdc
         int scanlines_, curline_;
 
         const int first_drawing_scanline_;
-        static const int cycles_per_scanline_ = 152;     // 15.2 cycles per scanline
-        static const int cycles_per_scanline_unit_ = 10; // it's pseudo-fixed-point math
 
         bool entered_vblank_;
         int hblank_timer_;
@@ -65,6 +71,9 @@ class Vdc
         bool grid_enabled() const;
 
         bool is_drawable(int x) const;
+        bool should_check_collisions(int x) const;
+
+        bool in_hblank() const;
 
         void clear_line();
         void draw_grid();
@@ -73,7 +82,7 @@ class Vdc
         void draw_sprites();
 
         void plot(int x, int color);
-        void plot(int x, int color, int coll_index);
+        void plot(int x, int color, int coll_index, bool check_bounds = true);
 
         mutable vector<uint8_t> collision_;
         mutable vector<uint8_t> collision_table_;
@@ -81,6 +90,8 @@ class Vdc
         void clear_collisions();
 
         uint8_t latched_x_, latched_y_;
+
+        vector<int> visible_pixels_;
 
     public:
         Vdc();

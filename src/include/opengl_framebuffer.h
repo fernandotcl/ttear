@@ -40,7 +40,7 @@ class OpenGLFramebuffer : public Framebuffer
         void init();
 
         void plot(int x, int y, int color);
-        void setline(int y, int color);
+        void setline(int x1, int x2, int y, int color);
 
         void blit();
 };
@@ -55,9 +55,9 @@ inline void OpenGLFramebuffer::plot(int x, int y, int color)
     buffer_data_[y * buffer_width_ + x] = colormap_[color];
 }
 
-inline void OpenGLFramebuffer::setline(int y, int color)
+inline void OpenGLFramebuffer::setline(int x1, int x2, int y, int color)
 {
-    fill(buffer_data_ + y * buffer_width_, buffer_data_ + (y + 1) * buffer_width_, colormap_[color]);
+    fill(buffer_data_ + y * SCREEN_WIDTH + x1, buffer_data_ + y * SCREEN_WIDTH + x2, colormap_[color]);
 }
 
 #endif

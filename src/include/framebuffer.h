@@ -14,7 +14,7 @@ class Framebuffer
         static const int COLORTABLE_SIZE = 24;
 
     public:
-        static const int SCREEN_WIDTH = 320;
+        static const int SCREEN_WIDTH = 340;
         static const int SCREEN_HEIGHT = 240;
 
         Framebuffer();
@@ -23,7 +23,7 @@ class Framebuffer
         virtual void init() = 0;
 
         virtual void plot(int x, int y, int color) = 0;
-        virtual void setline(int y, int color) = 0;
+        virtual void setline(int x1, int x2, int y, int color) = 0;
 
         virtual void blit() = 0;
 };
