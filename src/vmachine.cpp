@@ -82,12 +82,12 @@ void VirtualMachine::run()
     if (g_options.pal_emulation) {
         // PAL system, each VDC tick is 5/3 (1.666...) 8048 ticks
         vdc_units = 5;
-        cpu_units = 3;
+        cpu_units = 3 * Vdc::CYCLES_PER_SCANLINE;
     }
     else {
         // NTSC system, each VDC tick is 3/2 (1.5) 8048 ticks
         vdc_units = 3;
-        cpu_units = 2;
+        cpu_units = 2 * Vdc::CYCLES_PER_SCANLINE;
     }
 
     while (true) {

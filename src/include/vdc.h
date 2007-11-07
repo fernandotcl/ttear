@@ -14,6 +14,9 @@ class Cpu;
 
 class Vdc
 {
+    public:
+        static const int CYCLES_PER_SCANLINE = 228;
+
     private:
         static const int VDC_SIZE = 256;
 
@@ -41,31 +44,24 @@ class Vdc
         static const int VDC_COLLISION_EXTERNAL = 6;
         static const int VDC_COLLISION_CHAR = 7;
 
-        static const int VDC_SCREEN_WIDTH = 320;
+        static const int VDC_SCREEN_WIDTH = CYCLES_PER_SCANLINE * 2;
         static const int VDC_SCREEN_HEIGHT = 240;
+
+        static const int HBLANK_LENGTH = 44;
 
         static const int GRID_HORIZONTAL_OFFSET = 24;
         static const int FOREGROUND_HORIZONTAL_OFFSET = 8;
-
-        static const int COLLISION_TABLE_WIDTH = 368;
-        static const int COLLISION_TABLE_HEIGHT = Framebuffer::SCREEN_HEIGHT;
-
-        static const int CYCLES_PER_SCANLINE = 152;     // 15.2 cycles per scanline
-        static const int CYCLES_PER_SCANLINE_UNIT = 10; // it's pseudo-fixed-point math
-
-        static const int HBLANK_TIMER_INITIAL_VALUE = 3; // 3 cycles, 12.6us, pretty close to 12.4us
 
         vector<uint8_t> mem_;
         Cpu *cpu_;
         Framebuffer *framebuffer_;
 
-        int clock_;
+        int cycles_;
         int scanlines_, curline_;
 
         const int first_drawing_scanline_;
 
         bool entered_vblank_;
-        int hblank_timer_;
 
         bool foreground_enabled() const;
         bool grid_enabled() const;
@@ -75,7 +71,7 @@ class Vdc
 
         bool in_hblank() const;
 
-        void clear_line();
+        void draw_background();
         void draw_grid();
         void draw_chars();
         void draw_quads();
@@ -90,8 +86,6 @@ class Vdc
         void clear_collisions();
 
         uint8_t latched_x_, latched_y_;
-
-        vector<int> visible_pixels_;
 
     public:
         Vdc();
