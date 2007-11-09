@@ -1,15 +1,12 @@
-#ifndef GLOBALS_H
-#define GLOBALS_H
+#ifndef COMMON_H
+#define COMMON_H
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
 
-extern "C" {
 #include <SDL.h>
 #include <inttypes.h>
-}
-#include <cstdlib>
 #include <iostream>
 
 #ifdef DEBUG
@@ -25,6 +22,8 @@ extern "C" {
 
 #define LOGERROR (cerr << "E: ")
 #define LOGWARNING (cerr << "W: ")
+
+using namespace std;
 
 extern uint8_t g_junk;
 extern uint8_t g_p1, g_p2;
