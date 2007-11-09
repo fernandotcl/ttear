@@ -39,7 +39,9 @@ class Vdc
         static const int COLLISION_EXTERNAL = 6;
         static const int COLLISION_CHAR = 7;
 
-        static const int HBLANK_LENGTH = 44;
+        static const int CYCLES_PER_SCANLINE = 228;
+        static const int HBLANK_START = 178;
+        static const int HBLANK_END = 222;
 
         Cpu *cpu_;
         Framebuffer *framebuffer_;
@@ -75,8 +77,6 @@ class Vdc
         uint8_t latched_x_, latched_y_;
 
     public:
-        static const int CYCLES_PER_SCANLINE = 228;
-
         Vdc();
         ~Vdc();
 

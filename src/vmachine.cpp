@@ -74,19 +74,9 @@ inline void VirtualMachine::reset()
 void VirtualMachine::run()
 {
     int cpu_ticks = 0, vdc_ticks = 0;
-    int breakpoint = -1;
+    static const int cpu_units = 2280, vdc_units = g_options.pal_emulation ? 253 : 228;
 
-    int cpu_units, vdc_units;
-    if (g_options.pal_emulation) {
-        // PAL system, each VDC tick is 5/3 (1.666...) 8048 ticks
-        vdc_units = 5;
-        cpu_units = 3 * Vdc::CYCLES_PER_SCANLINE;
-    }
-    else {
-        // NTSC system, each VDC tick is 3/2 (1.5) 8048 ticks
-        vdc_units = 3;
-        cpu_units = 2 * Vdc::CYCLES_PER_SCANLINE;
-    }
+    int breakpoint = -1;
 
     while (true) {
         if (g_options.debug) {
@@ -145,7 +135,7 @@ void VirtualMachine::run()
                 }
                 cpu_ticks += cpu_.step() * cpu_units;
 
-                if (vdc_ticks == cpu_ticks)
+                if (vdc_.entered_vblank())
                     cpu_ticks = vdc_ticks = 0;
 
                 cpu_.debug_print(cout);
@@ -162,12 +152,6 @@ void VirtualMachine::run()
             SpeedLimit limit;
 
             while (!g_options.debug) {
-                if (cpu_.debug_get_pc() == breakpoint) {
-                    cpu_.debug_print(cout);
-                    g_options.debug = true;
-                    break;
-                }
-
                 // Check for SDL events
                 SDL_Event event;
                 while (SDL_PollEvent(&event)) {
@@ -208,18 +192,20 @@ void VirtualMachine::run()
                 }
 
                 for (int i = 0; i < UNPOLLED_FRAMES; ++i) {
+                    if (cpu_.debug_get_pc() == breakpoint) {
+                        cpu_.debug_print(cout);
+                        g_options.debug = true;
+                        break;
+                    }
+
                     while (!vdc_.entered_vblank() && !paused) {
-                        if (vdc_ticks < cpu_ticks) {
+                        while (vdc_ticks <= cpu_ticks) {
                             vdc_.step();
                             vdc_ticks += vdc_units;
                         }
-                        else {
-                            cpu_ticks += cpu_.step() * cpu_units;
-                        }
-
-                        if (vdc_ticks == cpu_ticks)
-                            cpu_ticks = vdc_ticks = 0;
+                        cpu_ticks += cpu_.step() * cpu_units;
                     }
+                    cpu_ticks = vdc_ticks = 0;
 
                     // Speed limiter
                     if (g_options.speed_limit)
