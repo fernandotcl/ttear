@@ -28,6 +28,8 @@ class OpenGLFramebuffer : public Framebuffer
 
         template<typename T> void load_proc(T &var, const char *procname);
 
+        string snapshot_;
+
     public:
         OpenGLFramebuffer();
         ~OpenGLFramebuffer();
@@ -41,6 +43,8 @@ class OpenGLFramebuffer : public Framebuffer
         void paste_surface(int x, int y, SDL_Surface *surface);
 
         void blit();
+
+        void take_snapshot(const string &str) { snapshot_ = str; }
 };
 
 inline OpenGLFramebuffer::OpenGLFramebuffer()

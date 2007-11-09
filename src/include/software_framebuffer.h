@@ -14,7 +14,6 @@ class SoftwareFramebuffer : public Framebuffer
     private:
         SDL_Surface *screen_, *buffer_;
 
-        bool scale_is_one_;
         vector<int> scaling_table_;
 
         Uint32 colormap_[COLORTABLE_SIZE];
@@ -32,11 +31,12 @@ class SoftwareFramebuffer : public Framebuffer
         void paste_surface(int x, int y, SDL_Surface *surface);
 
         void blit();
+
+        void take_snapshot(const string &str);
 };
 
 inline SoftwareFramebuffer::SoftwareFramebuffer()
-    : screen_(NULL), buffer_(NULL),
-      scale_is_one_(window_size_.x_scale == 1 && window_size_.y_scale == 1)
+    : screen_(NULL), buffer_(NULL)
 {
 }
 
@@ -64,6 +64,11 @@ inline void SoftwareFramebuffer::paste_surface(int x, int y, SDL_Surface *surfac
 {
     SDL_Rect r = {x, y, 0, 0};
     SDL_BlitSurface(surface, NULL, buffer_, &r);
+}
+
+inline void SoftwareFramebuffer::take_snapshot(const string &str)
+{
+    SDL_SaveBMP(screen_, str.c_str());
 }
 
 #endif

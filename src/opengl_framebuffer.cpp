@@ -168,6 +168,11 @@ void OpenGLFramebuffer::init()
 
 void OpenGLFramebuffer::blit()
 {
+    if (!snapshot_.empty()) {
+        SDL_SaveBMP(buffer_, snapshot_.c_str());
+        snapshot_.clear();
+    }
+
     s_glTexSubImage2D(texture_target_, 0, 0, 0, texture_width_, texture_height_,
             GL_BGRA, GL_UNSIGNED_BYTE, buffer_->pixels);
 

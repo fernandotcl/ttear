@@ -218,9 +218,12 @@ bool Options::parse(int argc, char **argv)
         IniParser parser(config_file.c_str());
         parser.load();
 
-        // system
+        // paths
         if (!bios_touched)
-            parser.get(bios, "bios", "system");
+            parser.get(bios, "bios", "paths");
+        parser.get(snapshot_dir, "snapshot_dir", "paths");
+
+        // system
         if (!pal_touched)
             parser.get(pal_emulation, "pal_emulation", "system");
         parser.get(speed_limit, "speed_limit", "system");

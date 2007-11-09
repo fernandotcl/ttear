@@ -24,6 +24,8 @@ class Options
         } scaling_mode_t;
 
         string bios, rom;
+        string snapshot_dir;
+
         bool pal_emulation;
         unsigned int speed_limit;
 

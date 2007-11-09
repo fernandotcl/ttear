@@ -1,5 +1,7 @@
 #include "common.h"
 
+#include <sstream>
+
 #include "framebuffer.h"
 
 #include "options.h"
@@ -28,22 +30,39 @@ const uint8_t Framebuffer::colortable_[Framebuffer::COLORTABLE_SIZE][3] = {
 
 Framebuffer::Framebuffer()
 {
-    window_size_.x_scale = (float)g_options.x_res / SCREEN_WIDTH;
-    window_size_.y_scale = (float)g_options.y_res / SCREEN_HEIGHT;
-
     if (g_options.keep_aspect) {
+        window_size_.x_scale = (float)g_options.x_res / 4;
+        window_size_.y_scale = (float)g_options.y_res / 3;
+
         float scale = window_size_.x_scale < window_size_.y_scale ? window_size_.x_scale : window_size_.y_scale;
 
-        window_size_.x = (unsigned int)((g_options.x_res - scale * SCREEN_WIDTH) / 2);
-        window_size_.y = (unsigned int)((g_options.y_res - scale * SCREEN_HEIGHT) / 2);
-        window_size_.x_end = (unsigned int)(window_size_.x + scale * SCREEN_WIDTH);
-        window_size_.y_end = (unsigned int)(window_size_.y + scale * SCREEN_HEIGHT);
-        window_size_.x_scale = window_size_.y_scale = scale;
+        window_size_.x = (unsigned int)((g_options.x_res - scale * 4) / 2);
+        window_size_.y = (unsigned int)((g_options.y_res - scale * 3) / 2);
+        window_size_.x_end = (unsigned int)(window_size_.x + scale * 4);
+        window_size_.y_end = (unsigned int)(window_size_.y + scale * 3);
+
+        window_size_.x_scale = scale * 4 / SCREEN_WIDTH;
+        window_size_.y_scale = scale * 3 / SCREEN_HEIGHT;
     }
     else {
+        window_size_.x_scale = (float)g_options.x_res / SCREEN_WIDTH;
+        window_size_.y_scale = (float)g_options.y_res / SCREEN_HEIGHT;
+
         window_size_.x = 0;
         window_size_.y = 0;
         window_size_.x_end = g_options.x_res;
         window_size_.y_end = g_options.y_res;
     }
+}
+
+void Framebuffer::take_snapshot()
+{
+    static int snapshot_index = 0;
+
+    if (g_options.snapshot_dir.empty())
+        return;
+
+    ostringstream oss;
+    oss << g_options.snapshot_dir << "/snapshot_" << setfill('0') << setw(4) << snapshot_index++ << ".bmp";
+    take_snapshot(oss.str());
 }

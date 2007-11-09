@@ -6,11 +6,7 @@
 
 void SoftwareFramebuffer::init()
 {
-    // We only want a hardware surface when we can directly blit to it, because pixel manipualtion is too
-    // slow on hardware surfaces
-    Uint32 surface_type = scale_is_one_ ? SDL_HWSURFACE : SDL_SWSURFACE;
-
-    Uint32 flags = surface_type;
+    Uint32 flags = SDL_SWSURFACE;
     if (g_options.fullscreen)
         flags |= SDL_FULLSCREEN;
     if (g_options.double_buffering)
@@ -21,7 +17,7 @@ void SoftwareFramebuffer::init()
         throw runtime_error(SDL_GetError());
 
     // Create a buffer to which we'll plot
-    buffer_ = SDL_CreateRGBSurface(surface_type, SCREEN_WIDTH, SCREEN_HEIGHT, 32, 0, 0, 0, 0);
+    buffer_ = SDL_CreateRGBSurface(SDL_SWSURFACE, SCREEN_WIDTH, SCREEN_HEIGHT, 32, 0, 0, 0, 0);
     if (!buffer_)
         throw runtime_error(SDL_GetError());
     else if (buffer_->format->BitsPerPixel != 32)
@@ -45,28 +41,23 @@ void SoftwareFramebuffer::init()
 
 void SoftwareFramebuffer::blit()
 {
-    if (scale_is_one_) {
-        SDL_BlitSurface(buffer_, NULL, screen_, NULL);
+    Uint32 *src = (Uint32 *)buffer_->pixels;
+    Uint32 *dst = (Uint32 *)screen_->pixels;
+    unsigned int dst_pitch = screen_->pitch / 4;
+
+    if (SDL_MUSTLOCK(screen_))
+        SDL_LockSurface(screen_);
+
+    unsigned int width = window_size_.x_end - window_size_.x;
+    unsigned int &x_start = window_size_.x;
+    unsigned int &y_start = window_size_.y;
+    for (unsigned int y = window_size_.y; y < window_size_.y_end; ++y) {
+        for (unsigned int x = window_size_.x; x < window_size_.x_end; ++x)
+            dst[y * dst_pitch + x] = src[scaling_table_[(y - y_start) * width + x - x_start]];
     }
-    else {
-        Uint32 *src = (Uint32 *)buffer_->pixels;
-        Uint32 *dst = (Uint32 *)screen_->pixels;
-        unsigned int dst_pitch = screen_->pitch / 4;
 
-        if (SDL_MUSTLOCK(screen_))
-            SDL_LockSurface(screen_);
-
-        unsigned int width = window_size_.x_end - window_size_.x;
-        unsigned int &x_start = window_size_.x;
-        unsigned int &y_start = window_size_.y;
-        for (unsigned int y = window_size_.y; y < window_size_.y_end; ++y) {
-            for (unsigned int x = window_size_.x; x < window_size_.x_end; ++x)
-                dst[y * dst_pitch + x] = src[scaling_table_[(y - y_start) * width + x - x_start]];
-        }
-
-        if (SDL_MUSTLOCK(screen_))
-            SDL_UnlockSurface(screen_);
-    }
+    if (SDL_MUSTLOCK(screen_))
+        SDL_UnlockSurface(screen_);
 
     if (g_options.double_buffering)
         SDL_Flip(screen_);

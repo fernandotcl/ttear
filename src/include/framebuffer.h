@@ -31,6 +31,9 @@ class Framebuffer
         virtual void paste_surface(int x, int y, SDL_Surface *surface) = 0;
 
         virtual void blit() = 0;
+
+        void take_snapshot();
+        virtual void take_snapshot(const string &str) = 0;
 };
 
 #endif
