@@ -1,4 +1,4 @@
-#include "globals.h"
+#include "common.h"
 
 #include "joysticks.h"
 

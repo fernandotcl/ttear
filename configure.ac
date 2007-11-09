@@ -9,13 +9,13 @@ AM_INIT_AUTOMAKE
 # A function to add compiler options
 add_compiler_opts() {
     for option in $* ; do
-        SAVE_CXXFLAGS="$CXXFLAGS"
+        SAFE_CXXFLAGS="$CXXFLAGS"
         CXXFLAGS="$option $CXXFLAGS"
-        AC_MSG_CHECKING([whether $CXX accepts $option])
         AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [])], has_option=yes, has_option=no)
+        AC_MSG_CHECKING([whether $CXX accepts $option])
         AC_MSG_RESULT($has_option)
         if test "$has_option" = "no" ; then
-            CXXFLAGS="$SAVE_CXXFLAGS"
+            CXXFLAGS="$SAFE_CXXFLAGS"
         fi
     done
 }

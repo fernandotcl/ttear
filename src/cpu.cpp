@@ -1,4 +1,4 @@
-#include "globals.h"
+#include "common.h"
 
 #include <iomanip>
 #include <iostream>
@@ -8,8 +8,6 @@
 #include "opcodes.h"
 #include "options.h"
 #include "rom.h"
-
-using namespace std;
 
 void Cpu::tcnt_increment()
 {

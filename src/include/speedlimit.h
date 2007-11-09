@@ -1,7 +1,7 @@
 #ifndef SPEED_LIMIT_H
 #define SPEED_LIMIT_H
 
-#include "globals.h"
+#include "common.h"
 
 #ifdef HAVE_GETTIMEOFDAY
 extern "C" {
@@ -13,7 +13,8 @@ extern "C" {
 # endif
 }
 #endif
-#include <iostream>
+
+#include "options.h"
 
 class SpeedLimit
 {

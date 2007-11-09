@@ -1,8 +1,7 @@
 #ifndef INIPARSER_H
 #define INIPARSER_H
 
-#include "globals.h"
-#include "util.h"
+#include "common.h"
 
 #include <cstring>
 #include <fstream>
@@ -11,7 +10,7 @@
 #include <string>
 #include <sstream>
 
-using namespace std;
+#include "util.h"
 
 static inline void lowercase(string &str)
 {

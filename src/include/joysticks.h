@@ -1,7 +1,7 @@
 #ifndef JOYSTICKS_H
 #define JOYSTICKS_H
 
-#include "globals.h"
+#include "common.h"
 
 class Joysticks
 {

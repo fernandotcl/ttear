@@ -1,11 +1,9 @@
-#include "globals.h"
+#include "common.h"
 
-extern "C" {
+#include <iostream>
 #ifdef HAVE_GETOPT_H
 # include <getopt.h>
 #endif
-}
-#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <sstream>
@@ -22,8 +20,6 @@ extern "C" {
 # define VERSION_STRING "version " PACKAGE_VERSION
 # define SHORT_VERSION_STRNG "v" PACKAGE_VERSION
 #endif
-
-using namespace std;
 
 Options g_options;
 
@@ -143,7 +139,7 @@ inline SDLKey Options::parse_key(IniParser &parser, const string &name, const st
     if (it == keymap_.end()) {
         ostringstream oss;
         oss << "Unknown key \"" << keyname << '"';
-        throw(runtime_error(oss.str().c_str()));
+        throw runtime_error(oss.str().c_str());
     }
 
     return it->second;
@@ -200,7 +196,7 @@ bool Options::parse(int argc, char **argv)
                 break;
             default:
                 show_usage(argv[0], cerr);
-                throw(runtime_error("Unknown command line switch"));
+                throw runtime_error("Unknown command line switch");
                 break;
         }
     }
@@ -210,12 +206,12 @@ bool Options::parse(int argc, char **argv)
     }
     else {
         show_usage(argv[0], cerr);
-        throw(runtime_error("ROM image file not specified"));
+        throw runtime_error("ROM image file not specified");
     }
 
     if (bios.empty()) {
         show_usage(argv[0], cerr);
-        throw(runtime_error("BIOS image file not specified"));
+        throw runtime_error("BIOS image file not specified");
     }
 
     if (!config_file.empty()) {
@@ -238,7 +234,7 @@ bool Options::parse(int argc, char **argv)
             if (!res.empty()) {
                 string::size_type x = res.find('x');
                 if (x == string::npos || x == 0 || x == res.size() - 1)
-                    throw(runtime_error("Invalid resolution setting"));
+                    throw runtime_error("Invalid resolution setting");
 
                 string x_str = trim(res.substr(0, x));
                 string y_str = trim(res.substr(x + 1));
@@ -246,12 +242,12 @@ bool Options::parse(int argc, char **argv)
                 iss.str(x_str);
                 iss >> x_res;
                 if (iss.fail())
-                    throw(runtime_error("Invalid X resolution setting"));
+                    throw runtime_error("Invalid X resolution setting");
                 iss.clear();
                 iss.str(y_str);
                 iss >> y_res;
                 if (iss.fail())
-                    throw(runtime_error("Invalid Y resolution setting"));
+                    throw runtime_error("Invalid Y resolution setting");
             }
         }
         parser.get(fullscreen, "fullscreen", "video");
@@ -266,7 +262,7 @@ bool Options::parse(int argc, char **argv)
                 else if (mode == "linear")
                     scaling_mode = SCALING_MODE_LINEAR;
                 else
-                    throw(runtime_error("Invalid scaling mode"));
+                    throw runtime_error("Invalid scaling mode");
             }
         }
 

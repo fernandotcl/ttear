@@ -1,8 +1,6 @@
-#include "globals.h"
+#include "common.h"
 
 #include "keyboard.h"
-
-using namespace std;
 
 const SDLKey Keyboard::keymap_[6][8] = {
     {SDLK_0, SDLK_1, SDLK_2, SDLK_3, SDLK_4, SDLK_5, SDLK_6, SDLK_7},

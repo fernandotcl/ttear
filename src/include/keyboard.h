@@ -1,12 +1,10 @@
 #ifndef KEYBOARD_H
 #define KEYBOARD_H
 
-#include "globals.h"
+#include "common.h"
 
 #include <map>
 #include <set>
-
-using namespace std;
 
 class Keyboard
 {

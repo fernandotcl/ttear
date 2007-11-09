@@ -1,4 +1,4 @@
-#include "globals.h"
+#include "common.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -10,8 +10,6 @@
 uint8_t g_junk;
 uint8_t g_p1, g_p2;
 bool g_t1;
-
-using namespace std;
 
 int main(int argc, char **argv)
 {

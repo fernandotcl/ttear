@@ -1,13 +1,10 @@
-#include "globals.h"
+#include "common.h"
 
 #include "framebuffer.h"
 
 #include "options.h"
 
-#include <iostream>
-using namespace std;
-
-const uint8_t Framebuffer::colortable_[24][3] = {
+const uint8_t Framebuffer::colortable_[Framebuffer::COLORTABLE_SIZE][3] = {
     // Light background and grid colors
     { 95, 110, 107}, // dark gray
     {106, 161, 255}, // blue
@@ -26,17 +23,7 @@ const uint8_t Framebuffer::colortable_[24][3] = {
     {199,   0,   8}, // red
     {204,  22, 179}, // violet
     {157, 135,  16}, // orange
-    {225, 209, 225}, // light gray
-
-    // Sprite and char colors
-    { 95, 110, 107}, // dark gray
-    {255,  66,  85}, // red
-    { 61, 240, 122}, // green
-    {217, 173,  93}, // yellow
-    {106, 161, 255}, // blue
-    {255, 152, 255}, // violet
-    { 49, 255, 255}, // cyan
-    {255, 255, 255}  // white
+    {225, 209, 225}  // light gray
 };
 
 Framebuffer::Framebuffer()

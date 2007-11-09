@@ -1,7 +1,7 @@
 #ifndef VMACHINE_H
 #define VMACHINE_H
 
-#include "globals.h"
+#include "common.h"
 
 #include "cpu.h"
 #include "extstorage.h"

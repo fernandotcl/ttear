@@ -1,16 +1,13 @@
 #ifndef OPENGL_FRAMEBUFFER_H
 #define OPENGL_FRAMEBUFFER_H
 
-#include "globals.h"
+#include "common.h"
 
-extern "C" {
 #include <SDL_opengl.h>
-}
 #include <algorithm>
+#include <stdexcept>
 
 #include "framebuffer.h"
-
-using namespace std;
 
 class OpenGLFramebuffer : public Framebuffer
 {
@@ -19,8 +16,6 @@ class OpenGLFramebuffer : public Framebuffer
         static const int SCREEN_HEIGHT_POWER2 = 256;
 
         SDL_Surface *screen_, *buffer_;
-        Uint32 *buffer_data_;
-        int buffer_width_;
 
         bool arbrect_support_;
 
@@ -39,8 +34,11 @@ class OpenGLFramebuffer : public Framebuffer
 
         void init();
 
-        void plot(int x, int y, int color);
-        void setline(int x1, int x2, int y, int color);
+        void set_clip_rect(SDL_Rect &r);
+        void clear_clip_rect();
+        void fill_rect(SDL_Rect &r, int color);
+
+        void paste_surface(int x, int y, SDL_Surface *surface);
 
         void blit();
 };
@@ -50,14 +48,25 @@ inline OpenGLFramebuffer::OpenGLFramebuffer()
 {
 }
 
-inline void OpenGLFramebuffer::plot(int x, int y, int color)
+inline void OpenGLFramebuffer::set_clip_rect(SDL_Rect &r)
 {
-    buffer_data_[y * buffer_width_ + x] = colormap_[color];
+    SDL_SetClipRect(buffer_, &r);
 }
 
-inline void OpenGLFramebuffer::setline(int x1, int x2, int y, int color)
+inline void OpenGLFramebuffer::clear_clip_rect()
 {
-    fill(buffer_data_ + y * SCREEN_WIDTH + x1, buffer_data_ + y * SCREEN_WIDTH + x2, colormap_[color]);
+    SDL_SetClipRect(buffer_, NULL);
+}
+
+inline void OpenGLFramebuffer::fill_rect(SDL_Rect &r, int color)
+{
+    SDL_FillRect(buffer_, &r, colormap_[color]);
+}
+
+inline void OpenGLFramebuffer::paste_surface(int x, int y, SDL_Surface *surface)
+{
+    SDL_Rect r = {x, y, 0, 0};
+    SDL_BlitSurface(surface, NULL, buffer_, &r);
 }
 
 #endif

@@ -1,7 +1,7 @@
 #ifndef OPTIONS_H
 #define OPTIONS_H
 
-#include "globals.h"
+#include "common.h"
 
 #include <map>
 #include <stdexcept>
@@ -9,8 +9,6 @@
 
 #include "iniparser.h"
 #include "joysticks.h"
-
-using namespace std;
 
 class Options
 {

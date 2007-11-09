@@ -1,7 +1,7 @@
 #ifndef CPU_H
 #define CPU_H
 
-#include "globals.h"
+#include "common.h"
 
 #include <iostream>
 
@@ -10,8 +10,6 @@
 #include "keyboard.h"
 #include "rom.h"
 #include "util.h"
-
-using namespace std;
 
 class Cpu
 {

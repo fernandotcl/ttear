@@ -1,14 +1,12 @@
 #ifndef EXTRAM_H
 #define EXTRAM_H
 
-#include "globals.h"
+#include "common.h"
 
 #include <iostream>
 #include <vector>
 
 #include "util.h"
-
-using namespace std;
 
 class ExternalRam
 {

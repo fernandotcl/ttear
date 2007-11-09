@@ -1,6 +1,8 @@
 #ifndef FRAMEBUFFER_H
 #define FRAMEBUFFER_H
 
+#include "common.h"
+
 class Framebuffer
 {
     protected:
@@ -10,11 +12,11 @@ class Framebuffer
             float x_scale, y_scale;
         } window_size_;
 
-        static const uint8_t colortable_[24][3];
-        static const int COLORTABLE_SIZE = 24;
+        static const int COLORTABLE_SIZE = 16;
+        static const uint8_t colortable_[COLORTABLE_SIZE][3];
 
     public:
-        static const int SCREEN_WIDTH = 340;
+        static const int SCREEN_WIDTH = 228 * 2;
         static const int SCREEN_HEIGHT = 240;
 
         Framebuffer();
@@ -22,8 +24,11 @@ class Framebuffer
 
         virtual void init() = 0;
 
-        virtual void plot(int x, int y, int color) = 0;
-        virtual void setline(int x1, int x2, int y, int color) = 0;
+        virtual void set_clip_rect(SDL_Rect &r) = 0;
+        virtual void clear_clip_rect() = 0;
+        virtual void fill_rect(SDL_Rect &r, int color) = 0;
+
+        virtual void paste_surface(int x, int y, SDL_Surface *surface) = 0;
 
         virtual void blit() = 0;
 };

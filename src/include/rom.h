@@ -1,12 +1,10 @@
 #ifndef ROM_H
 #define ROM_H
 
-#include "globals.h"
+#include "common.h"
 
 #include <fstream>
 #include <vector>
-
-using namespace std;
 
 class Rom : public ifstream
 {

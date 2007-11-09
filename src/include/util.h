@@ -1,13 +1,11 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include "globals.h"
+#include "common.h"
 
 #include <iostream>
 #include <iomanip>
 #include <string>
-
-using namespace std;
 
 #ifndef HAVE_BZERO
 static inline void bzero(void *dst, size_t len)

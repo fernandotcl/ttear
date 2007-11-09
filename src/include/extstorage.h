@@ -1,14 +1,12 @@
 #ifndef EXTSTORAGE_H
 #define EXTSTORAGE_H
 
-#include "globals.h"
+#include "common.h"
 
 class ExternalStorage;
 
 #include "extram.h"
 #include "vdc.h"
-
-using namespace std;
 
 class ExternalStorage
 {
@@ -16,13 +14,14 @@ class ExternalStorage
         ExternalRam extram_;
         Vdc &vdc_;
 
+        bool p1_bit_high(int index) const;
+        bool p1_bit_low(int index) const;
+
     public:
         ExternalStorage(Vdc &vdc) : vdc_(vdc) {}
 
         void debug_dump_extram(ostream &out) const { extram_.debug_dump(out); }
 
-        bool p1_bit_high(int index) const;
-        bool p1_bit_low(int index) const;
         template<typename T> void read(uint8_t offset, T &reg) const;
         void write(uint8_t offset, uint8_t value);
 };

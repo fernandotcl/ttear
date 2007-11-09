@@ -1,4 +1,4 @@
-#include "globals.h"
+#include "common.h"
 
 #include <iomanip>
 #include <iostream>
@@ -12,8 +12,6 @@
 #include "software_framebuffer.h"
 #include "speedlimit.h"
 
-using namespace std;
-
 VirtualMachine::VirtualMachine(const char *romfile, const char *biosfile)
     : extstorage_(vdc_),
       cpu_(rom_, extstorage_, keyboard_, joysticks_)
@@ -26,7 +24,7 @@ VirtualMachine::VirtualMachine(const char *romfile, const char *biosfile)
              << '.' << (int)version->minor << '.' << (int)version->patch << endl;
 
         if (SDL_Init(SDL_INIT_VIDEO) < 0)
-            throw(runtime_error(SDL_GetError()));
+            throw runtime_error(SDL_GetError());
     }
 
     SDL_ShowCursor(SDL_DISABLE);

@@ -1,8 +1,6 @@
-#include "globals.h"
+#include "common.h"
 
-extern "C" {
 #include <SDL_opengl.h>
-}
 #include <cstring>
 #include <iostream>
 #include <stdexcept>
@@ -68,13 +66,13 @@ template<typename T> void OpenGLFramebuffer::load_proc(T &var, const char *procn
 {
     var = (T)SDL_GL_GetProcAddress(procname);
     if (!var)
-        throw(runtime_error(string("Unable to load ") + procname));
+        throw runtime_error(string("Unable to load ") + procname);
 }
 
 void OpenGLFramebuffer::init()
 {
     if (SDL_GL_LoadLibrary(NULL))
-        throw(runtime_error("Unable to load OpenGL library"));
+        throw runtime_error("Unable to load OpenGL library");
 
     Uint32 flags = SDL_OPENGL;
     if (g_options.fullscreen)
@@ -84,7 +82,7 @@ void OpenGLFramebuffer::init()
 
     screen_ = SDL_SetVideoMode(g_options.x_res, g_options.y_res, 32, flags);
     if (!screen_)
-        throw(runtime_error(SDL_GetError()));
+        throw runtime_error(SDL_GetError());
 
     load_proc(s_glGetString, "glGetString");
     load_proc(s_glEnable, "glEnable");
@@ -128,11 +126,9 @@ void OpenGLFramebuffer::init()
         }
     }
 
-    buffer_ = SDL_CreateRGBSurface(SDL_SWSURFACE, texture_width_, texture_height_, 32, 0, 0, 0, 0);
+    buffer_ = SDL_CreateRGBSurface(SDL_HWSURFACE, texture_width_, texture_height_, 32, 0, 0, 0, 0);
     if (!buffer_)
-        throw(runtime_error(SDL_GetError()));
-    buffer_data_ = (Uint32 *)buffer_->pixels;
-    buffer_width_ = texture_width_;
+        throw runtime_error(SDL_GetError());
 
     for (int i = 0; i < COLORTABLE_SIZE; ++i)
         colormap_[i] = SDL_MapRGB(buffer_->format, colortable_[i][0], colortable_[i][1], colortable_[i][2]);

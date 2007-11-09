@@ -1,6 +1,4 @@
-#include "globals.h"
-
-#include <stdexcept>
+#include "common.h"
 
 #include "software_framebuffer.h"
 
@@ -16,22 +14,12 @@ void SoftwareFramebuffer::init()
 
     screen_ = SDL_SetVideoMode(g_options.x_res, g_options.y_res, 32, flags);
     if (!screen_)
-        throw(runtime_error(SDL_GetError()));
-
-    // If we don't get a 32bpp screen, we'll have to scale to a 32bpp surface and then do the real blitting
-    if (!scale_is_one_ && screen_->format->BitsPerPixel != 32) {
-        LOGWARNING << "Unable to set a 32bpp video mode, blitting will be slower" << endl;
-        temp_buffer_ = SDL_CreateRGBSurface(SDL_SWSURFACE, g_options.x_res, g_options.y_res, 32, 0, 0, 0, 0);
-        if (!temp_buffer_)
-            throw(runtime_error(SDL_GetError()));
-        using_temp_surface_ = true;
-    }
+        throw runtime_error(SDL_GetError());
 
     // Create a buffer to which we'll plot
     buffer_ = SDL_CreateRGBSurface(SDL_SWSURFACE, SCREEN_WIDTH, SCREEN_HEIGHT, 32, 0, 0, 0, 0);
     if (!buffer_)
-        throw(runtime_error(SDL_GetError()));
-    buffer_data_ = (Uint32 *)buffer_->pixels;
+        throw runtime_error(SDL_GetError());
 
     // Set up the colormap
     for (int i = 0; i < COLORTABLE_SIZE; ++i)
@@ -54,17 +42,11 @@ void SoftwareFramebuffer::blit()
         SDL_BlitSurface(buffer_, NULL, screen_, NULL);
     }
     else {
-        Uint32 *src, *dst;
-        src = (Uint32 *)buffer_->pixels;
+        Uint32 *src = (Uint32 *)buffer_->pixels;
+        Uint32 *dst = (Uint32 *)screen_->pixels;
 
-        if (using_temp_surface_) {
-            dst = (Uint32 *)temp_buffer_->pixels;
-        }
-        else {
-            dst = (Uint32 *)screen_->pixels;
-            if (SDL_MUSTLOCK(screen_) && SDL_LockSurface(screen_))
-                throw(runtime_error("Unable to lock screen surface"));
-        }
+        if (SDL_MUSTLOCK(screen_))
+            SDL_LockSurface(screen_);
 
         const unsigned int x_res = g_options.x_res;
         const unsigned int width = window_size_.x_end - window_size_.x;
@@ -75,9 +57,7 @@ void SoftwareFramebuffer::blit()
                 dst[y * x_res + x] = src[scaling_table_[(y - y_start) * width + x - x_start]];
         }
 
-        if (using_temp_surface_)
-            SDL_BlitSurface(temp_buffer_, NULL, screen_, NULL);
-        else if (SDL_MUSTLOCK(screen_))
+        if (SDL_MUSTLOCK(screen_))
             SDL_UnlockSurface(screen_);
     }
 

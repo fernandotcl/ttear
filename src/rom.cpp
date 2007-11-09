@@ -1,4 +1,4 @@
-#include "globals.h"
+#include "common.h"
 
 #include <cstring>
 #include <iostream>
@@ -7,8 +7,6 @@
 
 #include "rom.h"
 
-using namespace std;
-
 void Rom::load(const char *romfile, const char *biosfile)
 {
     exceptions(badbit);
@@ -16,7 +14,7 @@ void Rom::load(const char *romfile, const char *biosfile)
     cout << "Attempting to load ROM file " << romfile << endl;
     open(romfile, in | ate | binary);
     if (!is_open())
-        throw(runtime_error("Unable to open file"));
+        throw runtime_error("Unable to open file");
 
     {
         size_t len = tellg();
@@ -65,7 +63,7 @@ void Rom::load(const char *romfile, const char *biosfile)
                 read((char *)&banks_[3][1024], 3072);
                 break;
             default:
-                throw(runtime_error("Unrecognized ROM type"));
+                throw runtime_error("Unrecognized ROM type");
                 break;
         }
     }
@@ -76,14 +74,14 @@ void Rom::load(const char *romfile, const char *biosfile)
     cout << "Attempting to load BIOS file " << biosfile << endl;
     open(biosfile, in | ate | binary);
     if (!is_open())
-        throw(runtime_error("Unable to open file"));
+        throw runtime_error("Unable to open file");
 
     {
         size_t len;
         if ((len = tellg()) != 1024) {
             ostringstream oss;
             oss << "Incorrect BIOS image size (" << (len / 1024) << "kb, expected 1kb)";
-            throw(runtime_error(oss.str()));
+            throw runtime_error(oss.str());
         }
     }
 

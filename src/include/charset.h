@@ -1,6 +1,8 @@
 #ifndef CHARSET_H
 #define CHARSET_H
 
+#include "common.h"
+
 static const int CHARSET_SIZE = 512;
 
 static uint8_t charset[CHARSET_SIZE] = {
