@@ -49,9 +49,9 @@ class Vdc
         vector<uint8_t> mem_;
 
         int cycles_, scanlines_;
-        const int first_drawing_scanlines_;
+        const int first_drawing_scanline_;
 
-        bool entered_vblank_;
+        static bool entered_vblank_;
 
         bool grid_enabled() { return mem_[CONTROL_REGISTER] & 1 << 3; }
         bool foreground_enabled() { return mem_[CONTROL_REGISTER] & 1 << 5; }

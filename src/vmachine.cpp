@@ -74,7 +74,8 @@ inline void VirtualMachine::reset()
 void VirtualMachine::run()
 {
     int cpu_ticks = 0, vdc_ticks = 0;
-    static const int cpu_units = 2280, vdc_units = g_options.pal_emulation ? 253 : 228;
+    static const int cpu_units = 228 * 10;
+    const int vdc_units = g_options.pal_emulation ? 23.5 * 10 : 22.8 * 10;
 
     int breakpoint = -1;
 
@@ -204,13 +205,22 @@ void VirtualMachine::run()
                     }
 
                     while (!vdc_.entered_vblank() && !paused) {
-                        while (vdc_ticks <= cpu_ticks) {
+                        if (vdc_ticks < cpu_ticks) {
                             vdc_.step();
                             vdc_ticks += vdc_units;
                         }
-                        cpu_ticks += cpu_.step() * cpu_units;
+                        else {
+                            cpu_ticks += cpu_.step() * cpu_units;
+                        }
                     }
-                    cpu_ticks = vdc_ticks = 0;
+                    if (cpu_ticks > vdc_ticks) {
+                        cpu_ticks -= vdc_ticks;
+                        vdc_ticks = 0;
+                    }
+                    else {
+                        vdc_ticks -= cpu_ticks;
+                        cpu_ticks = 0;
+                    }
 
                     // Speed limiter
                     if (g_options.speed_limit)

@@ -7,6 +7,7 @@
 #include "charset.h"
 #include "cpu.h"
 
+bool Vdc::entered_vblank_;
 uint32_t *Vdc::object_data_;
 int Vdc::object_pitch_;
 
@@ -24,7 +25,7 @@ const uint8_t Vdc::object_colortable_[8][3] = {
 
 Vdc::Vdc()
     : mem_(MEMORY_SIZE),
-      first_drawing_scanlines_(g_options.pal_emulation ? 71 : 21),
+      first_drawing_scanline_(g_options.pal_emulation ? 71 : 21),
       object_surface_(NULL)
 {
 }
@@ -71,7 +72,7 @@ void Vdc::init(Framebuffer *framebuffer, Cpu *cpu)
 void Vdc::reset()
 {
     cycles_ = CYCLES_PER_SCANLINE;
-    scanlines_ = Framebuffer::SCREEN_HEIGHT + first_drawing_scanlines_;
+    scanlines_ = Framebuffer::SCREEN_HEIGHT + first_drawing_scanline_;
 }
 
 void Vdc::draw_background(SDL_Rect &clip_r)
@@ -252,6 +253,8 @@ inline void Vdc::draw_rect(SDL_Rect &clip_r)
 
 inline void Vdc::draw_screen()
 {
+    cout << "draw_screen(), current scanline is " << dec << scanlines_ << endl;
+
     static SDL_Rect whole_screen = {0, 0, Framebuffer::SCREEN_WIDTH, Framebuffer::SCREEN_HEIGHT};
     draw_rect(whole_screen);
 
@@ -280,7 +283,7 @@ void Vdc::step()
     if (cycles_ == CYCLES_PER_SCANLINE) {
         cycles_ = 0;
 
-        if (scanlines_ == Framebuffer::SCREEN_HEIGHT + first_drawing_scanlines_) {
+        if (scanlines_ == Framebuffer::SCREEN_HEIGHT + first_drawing_scanline_ + 1) {
             // Entered VBLANK
             entered_vblank_ = true;
             scanlines_ = 0;
@@ -295,9 +298,10 @@ void Vdc::step()
             screen_drawn_ = false;
         }
 
-        else if (scanlines_ == first_drawing_scanlines_) {
+        else if (scanlines_ == first_drawing_scanline_) {
             // Out of VBLANK
             g_t1 = false;
+
             // TODO clear collisions
 
             // If we haven't drawn the screen yet, drawn it (will overwrite everything on screen)
@@ -335,6 +339,7 @@ uint8_t Vdc::read(uint8_t offset)
     switch (offset)
     {
         case STATUS_REGISTER:
+            cout << "accessing status register, scanline " << scanlines_ << endl;
             cpu_->clear_external_irq();
             val = mem_[STATUS_REGISTER];
             mem_[STATUS_REGISTER] &= ~(1 << 3);
@@ -381,8 +386,8 @@ void Vdc::write(uint8_t offset, uint8_t value)
     }
 
     else {
+        uint8_t diff = mem_[offset] ^ value;
         mem_[offset] = value;
-        uint8_t diff = ~(mem_[offset] ^ value);
 
         if (offset == CONTROL_REGISTER) {
             if (value & 1 << 1) {
@@ -399,9 +404,11 @@ void Vdc::write(uint8_t offset, uint8_t value)
             }
 
             // The screen needs to be redrawn if the graphics have been changed
-            diff &= ~(1 << 0 || 1 << 1);
-            if (screen_drawn_ && diff)
+            diff &= ~(1 << 0 | 1 << 1);
+            if (screen_drawn_ && diff) {
+                cout << "updating screen because of CONTROL_REGISTER change (diff: 0x" << setw(2) << setfill('0') << hex << (int)diff << " scanline: " << dec << scanlines_ << ')' << endl;
                 update_screen();
+            }
         }
 
         else {
@@ -416,8 +423,10 @@ void Vdc::write(uint8_t offset, uint8_t value)
             else {
                 // The screen needs to be redrawn if foreground objects, the grid or the color register have
                 // been changed
-                if (screen_drawn_ && (!(offset & 1 << 7) || offset == COLOR_REGISTER))
+                if (screen_drawn_ && (!(offset & 1 << 7) || offset == COLOR_REGISTER)) {
+                    cout << "updating screen because of other change (offset: 0x" << setw(2) << setfill('0') << hex << (int)offset << " scanline: " << dec << scanlines_ << ')' << endl;
                     update_screen();
+                }
             }
         }
 
