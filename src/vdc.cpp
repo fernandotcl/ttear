@@ -230,25 +230,48 @@ void Vdc::draw_sprites(SDL_Rect &clip_r)
         draw_sprite(&mem_[SPRITE_CONTROL_START + i * 4], &mem_[SPRITE_SHAPE_START + i * 8], clip_r);
 }
 
-void Vdc::draw_screen()
+inline void Vdc::draw_rect(SDL_Rect &clip_r)
 {
-    static SDL_Rect whole_screen = {0, 0, Framebuffer::SCREEN_WIDTH, Framebuffer::SCREEN_HEIGHT};
-
-    draw_background(whole_screen);
+    draw_background(clip_r);
 
     if (grid_enabled())
-        draw_grid(whole_screen);
+        draw_grid(clip_r);
 
     if (foreground_enabled()) {
         if (SDL_MUSTLOCK(object_surface_))
             SDL_LockSurface(object_surface_);
 
-        draw_chars(whole_screen);
-        draw_quads(whole_screen);
-        draw_sprites(whole_screen);
+        draw_chars(clip_r);
+        draw_quads(clip_r);
+        draw_sprites(clip_r);
 
         if (SDL_MUSTLOCK(object_surface_))
             SDL_UnlockSurface(object_surface_);
+    }
+}
+
+inline void Vdc::draw_screen()
+{
+    static SDL_Rect whole_screen = {0, 0, Framebuffer::SCREEN_WIDTH, Framebuffer::SCREEN_HEIGHT};
+    draw_rect(whole_screen);
+
+    screen_drawn_ = true;
+}
+
+inline void Vdc::update_screen()
+{
+    if (cycles_ == 0) {
+        SDL_Rect r = {0, scanlines_, Framebuffer::SCREEN_WIDTH, Framebuffer::SCREEN_HEIGHT - scanlines_};
+        draw_rect(r);
+    }
+    else {
+        if (scanlines_ != 239) {
+            SDL_Rect r = {0, scanlines_ + 1, cycles_, Framebuffer::SCREEN_HEIGHT - scanlines_ - 1};
+            draw_rect(r);
+        }
+        SDL_Rect r = {cycles_, scanlines_, Framebuffer::SCREEN_WIDTH - cycles_,
+            Framebuffer::SCREEN_HEIGHT - scanlines_};
+        draw_rect(r);
     }
 }
 
@@ -278,10 +301,8 @@ void Vdc::step()
             // TODO clear collisions
 
             // If we haven't drawn the screen yet, drawn it (will overwrite everything on screen)
-            if (!screen_drawn_) {
+            if (!screen_drawn_)
                 draw_screen();
-                screen_drawn_ = true;
-            }
         }
 
         else if (g_options.pal_emulation && scanlines_ == -50) { // clear external IRQ on line 21 for PAL
@@ -339,8 +360,6 @@ uint8_t Vdc::read(uint8_t offset)
 
 void Vdc::write(uint8_t offset, uint8_t value)
 {
-    // TODO Call the draw_* functions whenever necessary
-
     // Don't allow writes to those registers when they're set to be displayed
     if (foreground_enabled() && !(offset & 1 << 7))
         return;
@@ -349,6 +368,9 @@ void Vdc::write(uint8_t offset, uint8_t value)
                 || (offset >= HORIZONTAL_GRID9_START && offset <= HORIZONTAL_GRID9_START + 9)
                 || (offset >= VERTICAL_GRID_START && offset <= VERTICAL_GRID_START + 8)))
         return;
+
+    //if (scanlines_ < 0 && !screen_drawn_)
+    //    cout << "detected mid-screen change" << endl;
 
     if (offset & 1 << 6 && !(offset & 1 << 7) && (offset % 4 == 0 || offset % 4 == 1)) {
         // We got the first or second char of a quad, let's mirror it across the quad
@@ -359,10 +381,43 @@ void Vdc::write(uint8_t offset, uint8_t value)
     }
 
     else {
+        mem_[offset] = value;
+        uint8_t diff = ~(mem_[offset] ^ value);
+
         if (offset == CONTROL_REGISTER) {
             if (value & 1 << 1) {
                 latched_x_ = (uint8_t)cycles_;
                 latched_y_ = (uint8_t)scanlines_;
+            }
+
+            if (diff & 1 << 1) {
+                // Change the position strobe status accordinagly
+                if (value & 1 << 1)
+                    mem_[STATUS_REGISTER] |= 1 << 1;
+                else
+                    mem_[STATUS_REGISTER] &= ~(1 << 1);
+            }
+
+            // The screen needs to be redrawn if the graphics have been changed
+            diff &= ~(1 << 0 || 1 << 1);
+            if (screen_drawn_ && diff)
+                update_screen();
+        }
+
+        else {
+            if (!diff)
+                return;
+
+            if (offset == COLLISION_REGISTER) {
+                // A change to the collision_register triggers an update to the collision buffer
+                // TODO update_collisions();
+            }
+
+            else {
+                // The screen needs to be redrawn if foreground objects, the grid or the color register have
+                // been changed
+                if (screen_drawn_ && (!(offset & 1 << 7) || offset == COLOR_REGISTER))
+                    update_screen();
             }
         }
 

@@ -70,9 +70,11 @@ class Vdc
         void draw_quads(SDL_Rect &clip_r);
         void draw_sprite(uint8_t *ptr, uint8_t *shape, SDL_Rect &clip_r);
         void draw_sprites(SDL_Rect &clip_r);
+        void draw_rect(SDL_Rect &clip_r);
 
         bool screen_drawn_;
         void draw_screen();
+        void update_screen();
 
         uint8_t latched_x_, latched_y_;
 
