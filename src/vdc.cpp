@@ -52,7 +52,7 @@ void Vdc::init(Framebuffer *framebuffer, Cpu *cpu)
         static const uint32_t bmask = 0x00ff0000;
         static const uint32_t amask = 0xff000000;
 #endif
-        object_surface_ = SDL_CreateRGBSurface(SDL_HWSURFACE, 64, 32, 32, rmask, gmask, bmask, amask);
+        object_surface_ = SDL_CreateRGBSurface(SDL_HWSURFACE, 80, 32, 32, rmask, gmask, bmask, amask);
     }
     if (!object_surface_)
         throw runtime_error(SDL_GetError());
@@ -96,9 +96,9 @@ void Vdc::draw_grid(SDL_Rect &clip_r)
         uint8_t bitfield = mem_[HORIZONTAL_GRID_START + i];
         for (int j = 0; j < 8; ++j) {
             if (bitfield & 1 << j) {
-                r.x = i * 64 + 48;
+                r.x = i * 80 + 60;
                 r.y = j * 24 + 24;
-                r.w = 72;
+                r.w = 90;
                 r.h = 4;
                 framebuffer_->fill_rect(r, color);
             }
@@ -108,9 +108,9 @@ void Vdc::draw_grid(SDL_Rect &clip_r)
     // The horizontal grid lines for the nineth row
     for (int i = 0; i < 9; ++i) {
         if (mem_[HORIZONTAL_GRID9_START + i] & 1 << 0) {
-            r.x = i * 64 + 48;
+            r.x = i * 80 + 60;
             r.y = 9 * 24;
-            r.w = 72;
+            r.w = 90;
             r.h = 4;
             framebuffer_->fill_rect(r, color);
         }
@@ -118,12 +118,12 @@ void Vdc::draw_grid(SDL_Rect &clip_r)
 
     // The vertical grid lines
     uint16_t vert_height = mem_[CONTROL_REGISTER] & 1 << 6 ? 4 : 24;
-    uint16_t vert_width = mem_[CONTROL_REGISTER] & 1 << 7 ? 72 : 8;
+    uint16_t vert_width = mem_[CONTROL_REGISTER] & 1 << 7 ? 90 : 10;
     for (int i = 0; i < 10; ++i) {
         uint8_t bitfield = mem_[VERTICAL_GRID_START + i];
         for (int j = 0; j < 8; ++j) {
             if (bitfield & 1 << j) {
-                r.x = i * 64 + 48;
+                r.x = i * 80 + 60;
                 r.y = j * 24 + 24;
                 r.w = vert_width;
                 r.h = vert_height;
@@ -137,7 +137,7 @@ inline void Vdc::draw_char(int x, uint8_t *ptr, SDL_Rect &clip_r)
 {
     // XXX Otimize this using clip_r
 
-    memset(object_data_, SDL_ALPHA_TRANSPARENT, 64 * 32 * 4);
+    memset(object_data_, SDL_ALPHA_TRANSPARENT, 80 * 32 * 4);
 
     x = x % 228 + 4;
     int y = ptr[0];
@@ -154,7 +154,8 @@ inline void Vdc::draw_char(int x, uint8_t *ptr, SDL_Rect &clip_r)
         uint8_t bitfield = charset[charset_index & CHARSET_SIZE - 1];
         for (int j = 0; j < 8; ++j) {
             if (bitfield & 1 << 7 - j) {
-                int plot_x = i * object_pitch_ + 4 * j;
+                int plot_x = i * object_pitch_ + 5 * j;
+                object_data_[plot_x++] = color;
                 object_data_[plot_x++] = color;
                 object_data_[plot_x++] = color;
                 object_data_[plot_x++] = color;
@@ -163,7 +164,7 @@ inline void Vdc::draw_char(int x, uint8_t *ptr, SDL_Rect &clip_r)
         }
     }
 
-    framebuffer_->paste_surface(x * 4 - 1, y, object_surface_);
+    framebuffer_->paste_surface(x * 5 - 1, y, object_surface_);
 }
 
 void Vdc::draw_chars(SDL_Rect &clip_r)
@@ -193,7 +194,7 @@ inline void Vdc::draw_sprite(uint8_t *ptr, uint8_t *shape, SDL_Rect &clip_r)
 {
     // TODO Optimize this using clip_r
 
-    memset(object_data_, SDL_ALPHA_TRANSPARENT, 64 * 32 * 4);
+    memset(object_data_, SDL_ALPHA_TRANSPARENT, 80 * 32 * 4);
 
     int y = ptr[0];
     int x = ptr[1] % 228 + 4;
@@ -207,15 +208,20 @@ inline void Vdc::draw_sprite(uint8_t *ptr, uint8_t *shape, SDL_Rect &clip_r)
         uint8_t bitfield = shape[i];
         int shift_even = control & 1 << 1 && i % 2 ? 1 : 0;
 
+        if (bitfield & 1 << 0) {
+            SDL_Rect r = {shift_even, i * multiplier, multiplier * 5 / 2 - 1, multiplier};
+            SDL_FillRect(object_surface_, &r, color);
+        }
         for (int j = 0; j < 8; ++j) {
             if (bitfield & 1 << j) {
-                SDL_Rect r = {j * multiplier * 2 + shift_even, i * multiplier, multiplier * 2, multiplier};
+                SDL_Rect r = {j * multiplier * 5 / 2 + shift_even, i * multiplier,
+                    multiplier * 5 / 2, multiplier};
                 SDL_FillRect(object_surface_, &r, color);
             }
         }
     }
 
-    framebuffer_->paste_surface(x * 4 + shift, y, object_surface_);
+    framebuffer_->paste_surface(x * 5 + shift, y, object_surface_);
 }
 
 void Vdc::draw_sprites(SDL_Rect &clip_r)
