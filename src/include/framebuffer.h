@@ -16,7 +16,8 @@ class Framebuffer
         static const uint8_t colortable_[COLORTABLE_SIZE][3];
 
     public:
-        static const int SCREEN_WIDTH = 170 * 5;
+        static const int SCREEN_WIDTH_MULTIPLIER = 5;
+        static const int SCREEN_WIDTH = 170 * SCREEN_WIDTH_MULTIPLIER;
         static const int SCREEN_HEIGHT = 240;
 
         Framebuffer();

@@ -6,6 +6,7 @@
 
 #include "charset.h"
 #include "cpu.h"
+#include "framebuffer.h"
 
 bool Vdc::entered_vblank_;
 uint32_t *Vdc::object_data_;
@@ -53,7 +54,8 @@ void Vdc::init(Framebuffer *framebuffer, Cpu *cpu)
         static const uint32_t bmask = 0x00ff0000;
         static const uint32_t amask = 0xff000000;
 #endif
-        object_surface_ = SDL_CreateRGBSurface(SDL_HWSURFACE, 80, 32, 32, rmask, gmask, bmask, amask);
+        object_surface_ = SDL_CreateRGBSurface(SDL_HWSURFACE,
+                16 * Framebuffer::SCREEN_WIDTH_MULTIPLIER, 32, 32, rmask, gmask, bmask, amask);
     }
     if (!object_surface_)
         throw runtime_error(SDL_GetError());
@@ -71,8 +73,8 @@ void Vdc::init(Framebuffer *framebuffer, Cpu *cpu)
 
 void Vdc::reset()
 {
-    cycles_ = CYCLES_PER_SCANLINE;
-    scanlines_ = Framebuffer::SCREEN_HEIGHT + first_drawing_scanline_;
+    cycles_ = 0;
+    scanlines_ = 0;
 }
 
 void Vdc::draw_background(SDL_Rect &clip_r)
@@ -97,9 +99,9 @@ void Vdc::draw_grid(SDL_Rect &clip_r)
         uint8_t bitfield = mem_[HORIZONTAL_GRID_START + i];
         for (int j = 0; j < 8; ++j) {
             if (bitfield & 1 << j) {
-                r.x = i * 80 + 60;
+                r.x = (i * 16 + 12) * Framebuffer::SCREEN_WIDTH_MULTIPLIER;
                 r.y = j * 24 + 24;
-                r.w = 90;
+                r.w = 18 * Framebuffer::SCREEN_WIDTH_MULTIPLIER;
                 r.h = 4;
                 framebuffer_->fill_rect(r, color);
             }
@@ -109,9 +111,9 @@ void Vdc::draw_grid(SDL_Rect &clip_r)
     // The horizontal grid lines for the nineth row
     for (int i = 0; i < 9; ++i) {
         if (mem_[HORIZONTAL_GRID9_START + i] & 1 << 0) {
-            r.x = i * 80 + 60;
+            r.x = (i * 16 + 12) * Framebuffer::SCREEN_WIDTH_MULTIPLIER;
             r.y = 9 * 24;
-            r.w = 90;
+            r.w = 18 * Framebuffer::SCREEN_WIDTH_MULTIPLIER;
             r.h = 4;
             framebuffer_->fill_rect(r, color);
         }
@@ -119,14 +121,14 @@ void Vdc::draw_grid(SDL_Rect &clip_r)
 
     // The vertical grid lines
     uint16_t vert_height = mem_[CONTROL_REGISTER] & 1 << 6 ? 4 : 24;
-    uint16_t vert_width = mem_[CONTROL_REGISTER] & 1 << 7 ? 90 : 10;
+    uint16_t vert_width = mem_[CONTROL_REGISTER] & 1 << 7 ? 18 : 2;
     for (int i = 0; i < 10; ++i) {
         uint8_t bitfield = mem_[VERTICAL_GRID_START + i];
         for (int j = 0; j < 8; ++j) {
             if (bitfield & 1 << j) {
-                r.x = i * 80 + 60;
+                r.x = (i * 16 + 12) * Framebuffer::SCREEN_WIDTH_MULTIPLIER;
                 r.y = j * 24 + 24;
-                r.w = vert_width;
+                r.w = vert_width * Framebuffer::SCREEN_WIDTH_MULTIPLIER;
                 r.h = vert_height;
                 framebuffer_->fill_rect(r, color);
             }
@@ -136,12 +138,14 @@ void Vdc::draw_grid(SDL_Rect &clip_r)
 
 inline void Vdc::draw_char(int x, uint8_t *ptr, SDL_Rect &clip_r)
 {
-    // XXX Otimize this using clip_r
+    int y = ptr[0];
+    if (y < clip_r.y || y + 16 > clip_r.y + clip_r.h
+            || x + 8 * Framebuffer::SCREEN_WIDTH_MULTIPLIER < clip_r.x || x > clip_r.x + clip_r.w)
+        return;
 
-    memset(object_data_, SDL_ALPHA_TRANSPARENT, 80 * 32 * 4);
+    memset(object_data_, SDL_ALPHA_TRANSPARENT, object_pitch_ * 32 * 4);
 
     x = x % 228 + 4;
-    int y = ptr[0];
     uint8_t &control = ptr[3];
 
     uint32_t color = object_colormap_[(control & (1 << 1 | 1 << 2 | 1 << 3)) >> 1];
@@ -155,7 +159,7 @@ inline void Vdc::draw_char(int x, uint8_t *ptr, SDL_Rect &clip_r)
         uint8_t bitfield = charset[charset_index & CHARSET_SIZE - 1];
         for (int j = 0; j < 8; ++j) {
             if (bitfield & 1 << 7 - j) {
-                int plot_x = i * object_pitch_ + 5 * j;
+                int plot_x = i * object_pitch_ + j * Framebuffer::SCREEN_WIDTH_MULTIPLIER;
                 object_data_[plot_x++] = color;
                 object_data_[plot_x++] = color;
                 object_data_[plot_x++] = color;
@@ -165,7 +169,8 @@ inline void Vdc::draw_char(int x, uint8_t *ptr, SDL_Rect &clip_r)
         }
     }
 
-    framebuffer_->paste_surface(x * 5 - 1, y, object_surface_);
+    // Note that chars are 1/Framebuffer::SCREEN_WIDTH_MULTIPLIER pixels shifted to the left
+    framebuffer_->paste_surface(x * Framebuffer::SCREEN_WIDTH_MULTIPLIER - 1, y, object_surface_);
 }
 
 void Vdc::draw_chars(SDL_Rect &clip_r)
@@ -193,36 +198,50 @@ void Vdc::draw_quads(SDL_Rect &clip_r)
 
 inline void Vdc::draw_sprite(uint8_t *ptr, uint8_t *shape, SDL_Rect &clip_r)
 {
-    // TODO Optimize this using clip_r
-
-    memset(object_data_, SDL_ALPHA_TRANSPARENT, 80 * 32 * 4);
-
     int y = ptr[0];
     int x = ptr[1] % 228 + 4;
+    if (y < clip_r.y || y + 32 > clip_r.y + clip_r.h
+            || x + 16 * Framebuffer::SCREEN_WIDTH_MULTIPLIER < clip_r.x || x > clip_r.x + clip_r.w)
+        return;
+
+    memset(object_data_, SDL_ALPHA_TRANSPARENT, object_pitch_ * 32 * 4);
+
     int control = ptr[2];
 
+    static const int shift_table[4][2] = {
+        {0,                                    0},
+        {Framebuffer::SCREEN_WIDTH_MULTIPLIER, Framebuffer::SCREEN_WIDTH_MULTIPLIER},
+        {Framebuffer::SCREEN_WIDTH_MULTIPLIER, 0},
+        {0,                                    Framebuffer::SCREEN_WIDTH_MULTIPLIER},
+    };
+    int shift_index = control & (1 << 0 | 1 << 1);
+    int shift_even = shift_table[shift_index][0];
+    int shift_odd = shift_table[shift_index][1];
+
     int color = object_colormap_[(control & (1 << 3 | 1 << 4 | 1 << 5)) >> 3];
-    int multiplier = control & 1 << 2 ? 4 : 2;
-    int shift = control & 1 << 0 ? 1 : 0;
+    int multiplier = control & 1 << 2 ? 2 : 1;
 
     for (int i = 0; i < 8; ++i) {
+        int shift = i % 2 ? shift_odd : shift_even;
+
         uint8_t bitfield = shape[i];
-        int shift_even = control & 1 << 1 && i % 2 ? 1 : 0;
 
         if (bitfield & 1 << 0) {
-            SDL_Rect r = {shift_even, i * multiplier, multiplier * 5 / 2 - 1, multiplier};
+            // The first column of every sprite is 1/Framebuffer::SCREEN_WIDTH_MULTIPLIER shorter
+            SDL_Rect r = {shift + 1, i * multiplier * 2,
+                multiplier * Framebuffer::SCREEN_WIDTH_MULTIPLIER - 1, multiplier * 2};
             SDL_FillRect(object_surface_, &r, color);
         }
-        for (int j = 0; j < 8; ++j) {
+        for (int j = 1; j < 8; ++j) {
             if (bitfield & 1 << j) {
-                SDL_Rect r = {j * multiplier * 5 / 2 + shift_even, i * multiplier,
-                    multiplier * 5 / 2, multiplier};
+                SDL_Rect r = {j * multiplier * Framebuffer::SCREEN_WIDTH_MULTIPLIER + shift, i * multiplier * 2,
+                    multiplier * Framebuffer::SCREEN_WIDTH_MULTIPLIER, multiplier * 2};
                 SDL_FillRect(object_surface_, &r, color);
             }
         }
     }
 
-    framebuffer_->paste_surface(x * 5 + shift, y, object_surface_);
+    framebuffer_->paste_surface(x * Framebuffer::SCREEN_WIDTH_MULTIPLIER, y, object_surface_);
 }
 
 void Vdc::draw_sprites(SDL_Rect &clip_r)
@@ -233,6 +252,11 @@ void Vdc::draw_sprites(SDL_Rect &clip_r)
 
 inline void Vdc::draw_rect(SDL_Rect &clip_r)
 {
+    if (clip_r.x != 0 && clip_r.y != 0 && clip_r.w != Framebuffer::SCREEN_WIDTH
+            && clip_r.h != Framebuffer::SCREEN_HEIGHT)
+        cout << "draw_rect(): going to draw {" << dec << clip_r.x << ", " << clip_r.y
+             << ", " << clip_r.w << ", " << clip_r.h << "}" << endl;
+
     draw_background(clip_r);
 
     if (grid_enabled())
@@ -244,17 +268,16 @@ inline void Vdc::draw_rect(SDL_Rect &clip_r)
 
         draw_chars(clip_r);
         draw_quads(clip_r);
-        draw_sprites(clip_r);
 
         if (SDL_MUSTLOCK(object_surface_))
             SDL_UnlockSurface(object_surface_);
+
+        draw_sprites(clip_r);
     }
 }
 
 inline void Vdc::draw_screen()
 {
-    cout << "draw_screen(), current scanline is " << dec << scanlines_ << endl;
-
     static SDL_Rect whole_screen = {0, 0, Framebuffer::SCREEN_WIDTH, Framebuffer::SCREEN_HEIGHT};
     draw_rect(whole_screen);
 
@@ -265,17 +288,21 @@ inline void Vdc::update_screen()
 {
     if (cycles_ == 0) {
         SDL_Rect r = {0, scanlines_, Framebuffer::SCREEN_WIDTH, Framebuffer::SCREEN_HEIGHT - scanlines_};
+        framebuffer_->set_clip_rect(r);
         draw_rect(r);
     }
     else {
-        if (scanlines_ != 239) {
+        if (scanlines_ != Framebuffer::SCREEN_HEIGHT - 1) {
             SDL_Rect r = {0, scanlines_ + 1, cycles_, Framebuffer::SCREEN_HEIGHT - scanlines_ - 1};
+            framebuffer_->set_clip_rect(r);
             draw_rect(r);
         }
         SDL_Rect r = {cycles_, scanlines_, Framebuffer::SCREEN_WIDTH - cycles_,
             Framebuffer::SCREEN_HEIGHT - scanlines_};
+        framebuffer_->set_clip_rect(r);
         draw_rect(r);
     }
+    framebuffer_->clear_clip_rect();
 }
 
 void Vdc::step()
@@ -283,7 +310,9 @@ void Vdc::step()
     if (cycles_ == CYCLES_PER_SCANLINE) {
         cycles_ = 0;
 
-        if (scanlines_ == Framebuffer::SCREEN_HEIGHT + first_drawing_scanline_ + 1) {
+        if (scanlines_ == Framebuffer::SCREEN_HEIGHT) {
+            cout << "entered vblank " << endl;
+
             // Entered VBLANK
             entered_vblank_ = true;
             scanlines_ = 0;
@@ -310,6 +339,7 @@ void Vdc::step()
         }
 
         else if (g_options.pal_emulation && scanlines_ == -50) { // clear external IRQ on line 21 for PAL
+            cout << "clearing external irq because reached line -50 (21)" << endl;
             cpu_->clear_external_irq();
         }
 
@@ -339,7 +369,6 @@ uint8_t Vdc::read(uint8_t offset)
     switch (offset)
     {
         case STATUS_REGISTER:
-            cout << "accessing status register, scanline " << scanlines_ << endl;
             cpu_->clear_external_irq();
             val = mem_[STATUS_REGISTER];
             mem_[STATUS_REGISTER] &= ~(1 << 3);
@@ -373,9 +402,6 @@ void Vdc::write(uint8_t offset, uint8_t value)
                 || (offset >= HORIZONTAL_GRID9_START && offset <= HORIZONTAL_GRID9_START + 9)
                 || (offset >= VERTICAL_GRID_START && offset <= VERTICAL_GRID_START + 8)))
         return;
-
-    //if (scanlines_ < 0 && !screen_drawn_)
-    //    cout << "detected mid-screen change" << endl;
 
     if (offset & 1 << 6 && !(offset & 1 << 7) && (offset % 4 == 0 || offset % 4 == 1)) {
         // We got the first or second char of a quad, let's mirror it across the quad
