@@ -1,6 +1,8 @@
 #include "common.h"
 
+#include <algorithm>
 #include <cstring>
+#include <iostream>
 
 #include "vdc.h"
 
@@ -73,6 +75,7 @@ void Vdc::init(Framebuffer *framebuffer, Cpu *cpu)
 
 void Vdc::reset()
 {
+    fill(mem_.begin(), mem_.end(), 0);
     cycles_ = 0;
     scanlines_ = 0;
 }
@@ -88,6 +91,8 @@ void Vdc::draw_background(SDL_Rect &clip_r)
 
 void Vdc::draw_grid(SDL_Rect &clip_r)
 {
+    // TODO Implement shape caching
+
     int color = mem_[COLOR_REGISTER] & (1 << 0 | 1 << 1 | 1 << 2);
     if (!(mem_[COLOR_REGISTER] & (1 << 6)))
         color += 8;
@@ -150,6 +155,8 @@ inline void Vdc::draw_char(int x, uint8_t *ptr, SDL_Rect &clip_r)
 
     uint32_t color = object_colormap_[(control & (1 << 1 | 1 << 2 | 1 << 3)) >> 1];
     int charset_ptr = ptr[2] | (control & 1 << 0) << 8;
+
+    // TODO Implement shape caching
 
     for (int i = 0; i < 16; ++i) {
         int charset_index = charset_ptr + (y + i) / 2;
@@ -252,10 +259,13 @@ void Vdc::draw_sprites(SDL_Rect &clip_r)
 
 inline void Vdc::draw_rect(SDL_Rect &clip_r)
 {
-    if (clip_r.x != 0 && clip_r.y != 0 && clip_r.w != Framebuffer::SCREEN_WIDTH
-            && clip_r.h != Framebuffer::SCREEN_HEIGHT)
-        cout << "draw_rect(): going to draw {" << dec << clip_r.x << ", " << clip_r.y
-             << ", " << clip_r.w << ", " << clip_r.h << "}" << endl;
+#ifdef DEBUG
+    if (clip_r.x != 0 || clip_r.y != 0 || clip_r.w != Framebuffer::SCREEN_WIDTH
+            || clip_r.h != Framebuffer::SCREEN_HEIGHT)
+        cout << "draw_rect(): going to draw {"
+             << dec << (clip_r.x / Framebuffer::SCREEN_WIDTH_MULTIPLIER) << ", " << clip_r.y
+             << ", " << (clip_r.w / Framebuffer::SCREEN_WIDTH_MULTIPLIER) << ", " << clip_r.h << "}" << endl;
+#endif
 
     draw_background(clip_r);
 
@@ -286,19 +296,20 @@ inline void Vdc::draw_screen()
 
 inline void Vdc::update_screen()
 {
+    int curline = scanlines_ - first_drawing_scanline_;
     if (cycles_ == 0) {
-        SDL_Rect r = {0, scanlines_, Framebuffer::SCREEN_WIDTH, Framebuffer::SCREEN_HEIGHT - scanlines_};
+        SDL_Rect r = {0, curline, Framebuffer::SCREEN_WIDTH, Framebuffer::SCREEN_HEIGHT - curline};
         framebuffer_->set_clip_rect(r);
         draw_rect(r);
     }
     else {
-        if (scanlines_ != Framebuffer::SCREEN_HEIGHT - 1) {
-            SDL_Rect r = {0, scanlines_ + 1, cycles_, Framebuffer::SCREEN_HEIGHT - scanlines_ - 1};
+        if (scanlines_ + 1 != Framebuffer::SCREEN_HEIGHT) {
+            SDL_Rect r = {0, curline + 1, cycles_, Framebuffer::SCREEN_HEIGHT - curline - 1};
             framebuffer_->set_clip_rect(r);
             draw_rect(r);
         }
-        SDL_Rect r = {cycles_, scanlines_, Framebuffer::SCREEN_WIDTH - cycles_,
-            Framebuffer::SCREEN_HEIGHT - scanlines_};
+        SDL_Rect r = {cycles_, curline, Framebuffer::SCREEN_WIDTH - cycles_,
+            Framebuffer::SCREEN_HEIGHT - curline};
         framebuffer_->set_clip_rect(r);
         draw_rect(r);
     }
@@ -307,11 +318,13 @@ inline void Vdc::update_screen()
 
 void Vdc::step()
 {
-    if (cycles_ == CYCLES_PER_SCANLINE) {
-        cycles_ = 0;
+    if (cycles_ >= CYCLES_PER_SCANLINE) {
+        cycles_ -= CYCLES_PER_SCANLINE;
 
-        if (scanlines_ == Framebuffer::SCREEN_HEIGHT) {
+        if (scanlines_ == Framebuffer::SCREEN_HEIGHT + first_drawing_scanline_) {
+#ifdef DEBUG
             cout << "entered vblank " << endl;
+#endif
 
             // Entered VBLANK
             entered_vblank_ = true;
@@ -331,15 +344,13 @@ void Vdc::step()
             // Out of VBLANK
             g_t1 = false;
 
-            // TODO clear collisions
-
             // If we haven't drawn the screen yet, drawn it (will overwrite everything on screen)
             if (!screen_drawn_)
                 draw_screen();
         }
 
-        else if (g_options.pal_emulation && scanlines_ == -50) { // clear external IRQ on line 21 for PAL
-            cout << "clearing external irq because reached line -50 (21)" << endl;
+        else if (g_options.pal_emulation && scanlines_ == 21) {
+            // Clear external IRQ on line 21 for PAL
             cpu_->clear_external_irq();
         }
 
@@ -353,10 +364,11 @@ void Vdc::step()
             cpu_->external_irq();
     }
 
-    if (cycles_ == HBLANK_END) {
+    else if (cycles_ == HBLANK_END) {
         // Out of HBLANK, let the running program know
         mem_[STATUS_REGISTER] |= 1 << 0;
-        cpu_->counter_increment();
+        if (scanlines_ >= first_drawing_scanline_)
+            cpu_->counter_increment();
     }
 
     ++cycles_;
@@ -378,7 +390,7 @@ uint8_t Vdc::read(uint8_t offset)
             return 0; // TODO
             break;
         case Y_REGISTER:
-            val = mem_[CONTROL_REGISTER] & 1 << 1 ? latched_y_ : (uint8_t)scanlines_;
+            val = mem_[CONTROL_REGISTER] & 1 << 1 ? latched_y_ : (uint8_t)(scanlines_ - first_drawing_scanline_);
             break;
         case X_REGISTER:
             val = mem_[CONTROL_REGISTER] & 1 << 1 ? latched_x_ : (uint8_t)cycles_;
@@ -418,7 +430,7 @@ void Vdc::write(uint8_t offset, uint8_t value)
         if (offset == CONTROL_REGISTER) {
             if (value & 1 << 1) {
                 latched_x_ = (uint8_t)cycles_;
-                latched_y_ = (uint8_t)scanlines_;
+                latched_y_ = (uint8_t)(scanlines_ - first_drawing_scanline_);
             }
 
             if (diff & 1 << 1) {
@@ -430,10 +442,17 @@ void Vdc::write(uint8_t offset, uint8_t value)
             }
 
             // The screen needs to be redrawn if the graphics have been changed
-            diff &= ~(1 << 0 | 1 << 1);
-            if (screen_drawn_ && diff) {
-                cout << "updating screen because of CONTROL_REGISTER change (diff: 0x" << setw(2) << setfill('0') << hex << (int)diff << " scanline: " << dec << scanlines_ << ')' << endl;
-                update_screen();
+            if (screen_drawn_) {
+                if (diff & ~(1 << 0 | 1 << 1 | 1 << 2)) {
+#ifdef DEBUG
+                    cout << "updating screen because of CONTROL_REGISTER change (diff: 0x"
+                         << setw(2) << setfill('0') << hex << (int)(diff & ~(1 << 0 | 1 << 1 | 1 << 2))
+                         << " value: 0x" << setw(2) << setfill('0') << hex << (int)value
+                         << " scanline: " << dec << scanlines_
+                         << " x: " << (cycles_ / Framebuffer::SCREEN_WIDTH_MULTIPLIER) << ')' << endl;
+#endif
+                    update_screen();
+                }
             }
         }
 
@@ -442,15 +461,20 @@ void Vdc::write(uint8_t offset, uint8_t value)
                 return;
 
             if (offset == COLLISION_REGISTER) {
-                // A change to the collision_register triggers an update to the collision buffer
-                // TODO update_collisions();
+                // A change to the collision register indicates what collisions we will check for in the next frame
+                // TODO
             }
 
             else {
                 // The screen needs to be redrawn if foreground objects, the grid or the color register have
                 // been changed
                 if (screen_drawn_ && (!(offset & 1 << 7) || offset == COLOR_REGISTER)) {
-                    cout << "updating screen because of other change (offset: 0x" << setw(2) << setfill('0') << hex << (int)offset << " scanline: " << dec << scanlines_ << ')' << endl;
+#ifdef DEBUG
+                    cout << "updating screen because of other change (offset: 0x"
+                         << setw(2) << setfill('0') << hex << (int)offset
+                         << " scanline: " << dec << scanlines_
+                         << " x: " << (cycles_ / Framebuffer::SCREEN_WIDTH_MULTIPLIER) << ')' << endl;
+#endif
                     update_screen();
                 }
             }
@@ -458,4 +482,10 @@ void Vdc::write(uint8_t offset, uint8_t value)
 
         mem_[offset] = value;
     }
+}
+
+void Vdc::debug_print_timing(ostream &out)
+{
+    out << "Scanline: " << dec << scanlines_ << " (0x" << hex << scanlines_
+        << ") Beam: " << dec << cycles_ << " (0x" << hex << cycles_ << ')' << endl;
 }

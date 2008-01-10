@@ -75,7 +75,7 @@ void VirtualMachine::run()
 {
     int cpu_ticks = 0, vdc_ticks = 0;
     static const int cpu_units = 228 * 10;
-    const int vdc_units = g_options.pal_emulation ? 23.5 * 10 : 22.8 * 10;
+    const int vdc_units = g_options.pal_emulation ? 25.3 * 10 : 22.8 * 10;
 
     int breakpoint = -1;
 
@@ -103,7 +103,7 @@ void VirtualMachine::run()
             else if (command == "e" || command == "extram") {
                 extstorage_.debug_dump_extram(cout);
             }
-            else if (command == "h" || command == "help") {
+            else if (command == "?" || command == "h" || command == "help") {
                 cout << "The following commands are recognized:\n" \
                         "c/continue Return to emulation\n" \
                         "i/intram   Dump the contents of the internal RAM\n" \
@@ -111,6 +111,7 @@ void VirtualMachine::run()
                         "q/quit     Quit " PACKAGE_NAME "\n" \
                         "r/reset    Reset the virtual machine\n" \
                         "s/step     Execute a single CPU step\n" \
+                        "t/timing   Show timing information\n" \
                         "v/vdc      Dump the contents of the VDC memory\n";
                 cout.flush();
             }
@@ -140,6 +141,9 @@ void VirtualMachine::run()
                     cpu_ticks = vdc_ticks = 0;
 
                 cpu_.debug_print(cout);
+            }
+            else if (command == "t" || command == "timing") {
+                vdc_.debug_print_timing(cout);
             }
             else if (command == "v" || command == "vdc") {
                 vdc_.debug_dump(cout);
@@ -198,19 +202,19 @@ void VirtualMachine::run()
                 }
 
                 for (int i = 0; i < UNPOLLED_FRAMES; ++i) {
-                    if (cpu_.debug_get_pc() == breakpoint) {
-                        cpu_.debug_print(cout);
-                        g_options.debug = true;
-                        break;
-                    }
-
                     while (!vdc_.entered_vblank() && !paused) {
-                        if (vdc_ticks < cpu_ticks) {
+                        if (vdc_ticks <= cpu_ticks) {
                             vdc_.step();
                             vdc_ticks += vdc_units;
                         }
                         else {
                             cpu_ticks += cpu_.step() * cpu_units;
+                            if (cpu_.debug_get_pc() == breakpoint) {
+                                cout << "Breakpoint reached" << endl;
+                                cpu_.debug_print(cout);
+                                g_options.debug = true;
+                                break;
+                            }
                         }
                     }
                     if (cpu_ticks > vdc_ticks) {
@@ -221,6 +225,9 @@ void VirtualMachine::run()
                         vdc_ticks -= cpu_ticks;
                         cpu_ticks = 0;
                     }
+
+                    if (g_options.debug)
+                        break;
 
                     // Speed limiter
                     if (g_options.speed_limit)

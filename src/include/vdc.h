@@ -93,6 +93,7 @@ class Vdc
         bool entered_vblank();
 
         void debug_dump(ostream &out) const { dump_memory(out, mem_, MEMORY_SIZE); }
+        void debug_print_timing(ostream &out);
 };
 
 inline bool Vdc::entered_vblank()

@@ -117,25 +117,25 @@ inline void Cpu::irq(int addr)
     in_irq_ = true;
     push(pc_ & 0xff);
     push((pc_ & 0xf00) >> 8 | psw_() & 0xf0);
-    last_pc_ = pc_;
     pc_ = addr;
 }
 
 int Cpu::step()
 {
+    last_pc_ = pc_;
+
     if (!in_irq_) {
         if (extirq_pending_) {
             irq(CPU_EXTIRQ_INTERRUPT_VECTOR);
             return 2;
         }
-        if (tcntirq_pending_) {
+        else if (tcntirq_pending_) {
             tcntirq_pending_ = false;
             irq(CPU_TCNTIRQ_INTERRUPT_VECTOR);
             return 2;
         }
     }
 
-    last_pc_ = pc_;
     uint8_t opcode = rom_[pc_++];
     pc_ = pc_ & Rom::BANK_SIZE - 1;
     int clock;
