@@ -23,7 +23,8 @@ int main(int argc, char **argv)
     }
 
     try {
-        VirtualMachine vm(g_options.rom.c_str(), g_options.bios.c_str());
+        VirtualMachine vm;
+        vm.init(g_options.rom.c_str(), g_options.bios.c_str());
         vm.run();
         cout << "Emulation terminated" << endl;
     }

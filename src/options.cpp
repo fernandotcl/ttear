@@ -18,7 +18,7 @@
 # define SHORT_VERSION_STRING "r" SVN_REVISION
 #else
 # define VERSION_STRING "version " PACKAGE_VERSION
-# define SHORT_VERSION_STRNG "v" PACKAGE_VERSION
+# define SHORT_VERSION_STRING "v" PACKAGE_VERSION
 #endif
 
 Options g_options;

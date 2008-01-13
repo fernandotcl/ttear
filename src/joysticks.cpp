@@ -4,6 +4,8 @@
 
 #include "options.h"
 
+Joysticks g_joysticks;
+
 bool Joysticks::handle_key_down(const SDL_keysym &keysym)
 {
     for (int i = 0; i < 2; ++i) {

@@ -25,6 +25,8 @@ class Keyboard
         void calculate_p2();
 };
 
+extern Keyboard g_keyboard;
+
 inline SDLKey Keyboard::translate_key(SDLKey key) const
 {
     set<SDLKey>::const_iterator it = possible_keys_.find(key);

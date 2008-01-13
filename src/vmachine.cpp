@@ -7,16 +7,20 @@
 
 #include "vmachine.h"
 
+#include "chars.h"
+#include "cpu.h"
+#include "joysticks.h"
+#include "keyboard.h"
 #include "opengl_framebuffer.h"
 #include "options.h"
+#include "rom.h"
 #include "software_framebuffer.h"
 #include "speedlimit.h"
+#include "vdc.h"
 
-VirtualMachine::VirtualMachine(const char *romfile, const char *biosfile)
-    : extstorage_(vdc_),
-      cpu_(rom_, extstorage_, keyboard_, joysticks_)
+void VirtualMachine::init(const char *romfile, const char *biosfile)
 {
-    rom_.load(romfile, biosfile);
+    g_rom.load(romfile, biosfile);
 
     {
         const SDL_version *version = SDL_Linked_Version();
@@ -26,36 +30,39 @@ VirtualMachine::VirtualMachine(const char *romfile, const char *biosfile)
         if (SDL_Init(SDL_INIT_VIDEO) < 0)
             throw runtime_error(SDL_GetError());
     }
-
     SDL_ShowCursor(SDL_DISABLE);
     SDL_EnableKeyRepeat(0, 0);
 
+    g_vdc.init();
+    g_chars.init();
+
     if (g_options.opengl) {
-        framebuffer_ = new OpenGLFramebuffer;
+        g_framebuffer = new OpenGLFramebuffer;
         try {
-            framebuffer_->init();
+            g_framebuffer->init();
         }
         catch (exception &e) {
             LOGWARNING << "Unable to initialize the OpenGL framebuffer: " << e.what() << endl;
             LOGWARNING << "Falling back to software rendering mode" << endl;
-            delete framebuffer_;
-            framebuffer_ = new SoftwareFramebuffer;
+            delete g_framebuffer;
+            g_framebuffer = new SoftwareFramebuffer;
         }
     }
     else {
-        framebuffer_ = new SoftwareFramebuffer;
-        framebuffer_->init();
+        g_framebuffer = new SoftwareFramebuffer;
+        g_framebuffer->init();
     }
     SDL_WM_SetCaption(PACKAGE_NAME " " PACKAGE_VERSION, PACKAGE_NAME);
     if (g_options.debug)
         SDL_WM_IconifyWindow();
 
-    vdc_.init(framebuffer_, &cpu_);
     reset();
 }
 
 VirtualMachine::~VirtualMachine()
 {
+    delete g_framebuffer;
+
     SDL_Quit();
     cout << "Virtual machine quit" << endl;
 }
@@ -63,19 +70,19 @@ VirtualMachine::~VirtualMachine()
 inline void VirtualMachine::reset()
 {
     g_p1 = g_p2 = 0xff;
-    rom_.calculate_current_bank();
+    g_rom.calculate_current_bank();
 
     g_t1 = true;
 
-    cpu_.reset();
-    vdc_.reset();
+    g_cpu.reset();
+    g_vdc.reset();
 }
 
 void VirtualMachine::run()
 {
-    int cpu_ticks = 0, vdc_ticks = 0;
-    static const int cpu_units = 228 * 10;
-    const int vdc_units = g_options.pal_emulation ? 25.3 * 10 : 22.8 * 10;
+    cout << "Emulation started" << endl;
+
+    const int time_units = g_options.pal_emulation ? 10 : 9;
 
     int breakpoint = -1;
 
@@ -101,7 +108,7 @@ void VirtualMachine::run()
                 g_options.debug = false;
             }
             else if (command == "e" || command == "extram") {
-                extstorage_.debug_dump_extram(cout);
+                g_extstorage.debug_dump_extram(cout);
             }
             else if (command == "?" || command == "h" || command == "help") {
                 cout << "The following commands are recognized:\n" \
@@ -116,10 +123,10 @@ void VirtualMachine::run()
                 cout.flush();
             }
             else if (command == "i" || command == "intram") {
-                cpu_.debug_dump_intram(cout);
+                g_cpu.debug_dump_intram(cout);
             }
             else if (command == "p" || command == "print") {
-                cpu_.debug_print(cout);
+                g_cpu.debug_print(cout);
             }
             else if (command == "q" || command == "quit" || cin.eof()) {
                 if (cin.eof())
@@ -131,22 +138,17 @@ void VirtualMachine::run()
                 cout << "Reset the virtual machine" << endl;
             }
             else if (command == "s" || command == "step") {
-                while (vdc_ticks < cpu_ticks) {
-                    vdc_.step();
-                    vdc_ticks += vdc_units;
-                }
-                cpu_ticks += cpu_.step() * cpu_units;
+                const int ticks = g_cpu.step();
+                for (int i = 0; i < time_units * ticks; ++i)
+                    g_vdc.step();
 
-                if (vdc_.entered_vblank())
-                    cpu_ticks = vdc_ticks = 0;
-
-                cpu_.debug_print(cout);
+                g_cpu.debug_print(cout);
             }
             else if (command == "t" || command == "timing") {
-                vdc_.debug_print_timing(cout);
+                g_vdc.debug_print_timing(cout);
             }
             else if (command == "v" || command == "vdc") {
-                vdc_.debug_dump(cout);
+                g_vdc.debug_dump(cout);
             }
             else {
                 cout << "Unknown command, use \"help\" or \"h\" for help" << endl;
@@ -166,8 +168,8 @@ void VirtualMachine::run()
                             break;
                         case SDL_KEYDOWN:
                             if (event.key.keysym.mod & KMOD_CAPS
-                                    || !joysticks_.handle_key_down(event.key.keysym))
-                                keyboard_.handle_key_down(event.key.keysym);
+                                    || !g_joysticks.handle_key_down(event.key.keysym))
+                                g_keyboard.handle_key_down(event.key.keysym);
                             break;
                         case SDL_KEYUP:
                             switch (event.key.keysym.sym) {
@@ -189,12 +191,12 @@ void VirtualMachine::run()
                                     cout << "Reset the virtual machine" << endl;
                                     break;
                                 case SDLK_PRINT:
-                                    framebuffer_->take_snapshot();
+                                    g_framebuffer->take_snapshot();
                                     break;
                                 default:
                                     if (event.key.keysym.mod & KMOD_CAPS
-                                            || !joysticks_.handle_key_up(event.key.keysym))
-                                        keyboard_.handle_key_up(event.key.keysym);
+                                            || !g_joysticks.handle_key_up(event.key.keysym))
+                                        g_keyboard.handle_key_up(event.key.keysym);
                                     break;
                             }
                             break;
@@ -202,28 +204,17 @@ void VirtualMachine::run()
                 }
 
                 for (int i = 0; i < UNPOLLED_FRAMES; ++i) {
-                    while (!vdc_.entered_vblank() && !paused) {
-                        if (vdc_ticks <= cpu_ticks) {
-                            vdc_.step();
-                            vdc_ticks += vdc_units;
+                    while (!g_vdc.entered_vblank() && !paused) {
+                        const int ticks = g_cpu.step();
+                        for (int i = 0; i < time_units * ticks; ++i)
+                            g_vdc.step();
+
+                        if (g_cpu.debug_get_pc() == breakpoint) {
+                            cout << "Breakpoint reached" << endl;
+                            g_cpu.debug_print(cout);
+                            g_options.debug = true;
+                            break;
                         }
-                        else {
-                            cpu_ticks += cpu_.step() * cpu_units;
-                            if (cpu_.debug_get_pc() == breakpoint) {
-                                cout << "Breakpoint reached" << endl;
-                                cpu_.debug_print(cout);
-                                g_options.debug = true;
-                                break;
-                            }
-                        }
-                    }
-                    if (cpu_ticks > vdc_ticks) {
-                        cpu_ticks -= vdc_ticks;
-                        vdc_ticks = 0;
-                    }
-                    else {
-                        vdc_ticks -= cpu_ticks;
-                        cpu_ticks = 0;
                     }
 
                     if (g_options.debug)

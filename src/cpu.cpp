@@ -9,6 +9,8 @@
 #include "options.h"
 #include "rom.h"
 
+Cpu g_cpu;
+
 void Cpu::tcnt_increment()
 {
     if (++tcnt_ == 0) {
@@ -22,8 +24,8 @@ void Cpu::debug_print(ostream &out)
 {
     out << setfill('0') << hex;
 
-    out << "0x" << setw(4) << last_pc_ << ": " << opcode_names[rom_[last_pc_]]
-        << " [0x" << setw(2) << (int)rom_[last_pc_ + 1] << "] (0x" << setw(2) << (int)rom_[last_pc_] << ")\n";
+    out << "0x" << setw(4) << last_pc_ << ": " << opcode_names[g_rom[last_pc_]]
+        << " [0x" << setw(2) << (int)g_rom[last_pc_ + 1] << "] (0x" << setw(2) << (int)g_rom[last_pc_] << ")\n";
 
     out << "A: 0x" << setw(2) << acc_ << " PSW: 0x" << setw(2) << (int)psw_()
         << " (CY: " << (psw_.cy ? '1' : '0')
@@ -32,7 +34,7 @@ void Cpu::debug_print(ostream &out)
         << ", BS: " << (psw_.bs ? '1' : '0')
         << ", SP: " << "0x" << setw(2) << (int)psw_.sp << ")\n";
 
-    keyboard_.calculate_p2();
+    g_keyboard.calculate_p2();
     out << "P1: 0x" << setw(2) << (int)g_p1 << " P2: 0x" << setw(2) << (int)g_p2 << "\n";
 
     if (psw_.bs)
@@ -88,7 +90,7 @@ inline void Cpu::addc(uint8_t val)
 inline void Cpu::jmp_if(bool val)
 {
     if (val)
-        pc_ = pc_ & 0xf00 | rom_[pc_];
+        pc_ = pc_ & 0xf00 | g_rom[pc_];
     else
         ++pc_;
 }
@@ -100,7 +102,7 @@ inline void Cpu::jb(int index)
 
 inline void Cpu::jmp(int page)
 {
-    pc_ = rom_[pc_] | page << 8;
+    pc_ = g_rom[pc_] | page << 8;
     if (a11_on_ && !in_irq_)
         pc_ |= 1 << 11;
 }
@@ -136,7 +138,7 @@ int Cpu::step()
         }
     }
 
-    uint8_t opcode = rom_[pc_++];
+    uint8_t opcode = g_rom[pc_++];
     pc_ = pc_ & Rom::BANK_SIZE - 1;
     int clock;
 
@@ -152,7 +154,7 @@ int Cpu::step()
             clock = 1;
             break;
         case 0x03: // ADD A, #data
-            add(rom_[pc_++]);
+            add(g_rom[pc_++]);
             clock = 1;
             break;
         case 0x04: // JMP (page 0)
@@ -168,7 +170,7 @@ int Cpu::step()
             clock = 1;
             break;
         case 0x08: // INS A, BUS
-            acc_ = joysticks_.get_bus();
+            acc_ = g_joysticks.get_bus();
             clock = 2;
             break;
         case 0x09: // IN A, P1
@@ -176,7 +178,7 @@ int Cpu::step()
             clock = 2;
             break;
         case 0x0a: // IN A, P2
-            keyboard_.calculate_p2();
+            g_keyboard.calculate_p2();
             acc_ = g_p2;
             clock = 2;
             break;
@@ -203,7 +205,7 @@ int Cpu::step()
             clock = 2;
             break;
         case 0x13: // ADDC A, #data
-            addc(rom_[pc_++]);
+            addc(g_rom[pc_++]);
             clock = 2;
             break;
         case 0x14: // CALL (page 0)
@@ -248,7 +250,7 @@ int Cpu::step()
         XCH_A_RPTR(0)
         XCH_A_RPTR(1)
         case 0x23: // MOV A, #data
-            acc_ = rom_[pc_++];
+            acc_ = g_rom[pc_++];
             clock = 2;
             break;
         case 0x24: // JMP (page 1)
@@ -315,7 +317,7 @@ int Cpu::step()
             break;
         case 0x39: // OUTL P1, A
             g_p1 = acc_;
-            rom_.calculate_current_bank();
+            g_rom.calculate_current_bank();
             clock = 2;
             break;
         case 0x3a: // OUTL P2, A
@@ -344,7 +346,7 @@ int Cpu::step()
             clock = 1;
             break;
         case 0x43: // ORL A, #data
-            acc_ |= rom_[pc_++];
+            acc_ |= g_rom[pc_++];
             clock = 2;
             break;
         case 0x44: // JMP (page 2)
@@ -390,7 +392,7 @@ int Cpu::step()
             clock = 2;
             break;
         case 0x53: // ANL A, #data
-            acc_ &= rom_[pc_++];
+            acc_ &= g_rom[pc_++];
             clock = 2;
             break;
         case 0x54: // CALL (page 2)
@@ -516,7 +518,7 @@ int Cpu::step()
         ADDC_A_R(7)
 #define MOVX_A_RPTR(n) \
         case 0x80 + n: \
-            extstorage_.read(r(n), acc_); \
+            g_extstorage.read(r(n), acc_); \
             clock = 2; \
             break;
         // MOVX A, @Rn
@@ -540,12 +542,12 @@ int Cpu::step()
             clock = 2;
             break;
         case 0x89: // ORL P1, #data
-            g_p1 |= rom_[pc_++];
-            rom_.calculate_current_bank();
+            g_p1 |= g_rom[pc_++];
+            g_rom.calculate_current_bank();
             clock = 2;
             break;
         case 0x8a: // ORL P2, #data
-            g_p2 |= rom_[pc_++];
+            g_p2 |= g_rom[pc_++];
             clock = 2;
             break;
 #define ORLD_P_A(n, pn) \
@@ -559,7 +561,7 @@ int Cpu::step()
         ORLD_P_A(3, p7_)
 #define MOVX_RPTR_A(n) \
         case 0x90 + n: \
-            extstorage_.write(r(n), acc_); \
+            g_extstorage.write(r(n), acc_); \
             clock = 2; \
             break;
         // MOVX @Rn, A
@@ -594,12 +596,12 @@ int Cpu::step()
             clock = 1;
             break;
         case 0x99: // ANL P1, #data
-            g_p1 &= rom_[pc_++];
-            rom_.calculate_current_bank();
+            g_p1 &= g_rom[pc_++];
+            g_rom.calculate_current_bank();
             clock = 2;
             break;
         case 0x9a: // ANL P2, #data
-            g_p2 &= rom_[pc_++];
+            g_p2 &= g_rom[pc_++];
             clock = 2;
             break;
 #define ANLD_P_A(n, pn) \
@@ -620,7 +622,7 @@ int Cpu::step()
         MOV_RPTR_A(0)
         MOV_RPTR_A(1)
         case 0xa3: // MOVP A, @A
-            acc_ = rom_[pc_ & 0xf00 | acc_];
+            acc_ = g_rom[pc_ & 0xf00 | acc_];
             clock = 2;
             break;
         case 0xa4: // JMP (page 5)
@@ -651,7 +653,7 @@ int Cpu::step()
         MOV_R_A(7)
 #define MOV_RPTR_DATA(n) \
         case 0xb0 + n: \
-            intram_[r(n) & INTRAM_SIZE - 1] = rom_[pc_++]; \
+            intram_[r(n) & INTRAM_SIZE - 1] = g_rom[pc_++]; \
             clock = 2; \
             break;
         // MOV @Rn, #data
@@ -662,7 +664,7 @@ int Cpu::step()
             clock = 2;
             break;
         case 0xb3: // JMPP @A
-            pc_ = pc_ & 0xf00 | rom_[pc_ & 0xf00 | acc_];
+            pc_ = pc_ & 0xf00 | g_rom[pc_ & 0xf00 | acc_];
             clock = 2;
             break;
         case 0xb4: // CALL (page 5)
@@ -679,7 +681,7 @@ int Cpu::step()
             break;
 #define MOV_R_DATA(n) \
         case 0xB8 + n: \
-            r(n) = rom_[pc_++]; \
+            r(n) = g_rom[pc_++]; \
             clock = 2; \
             break;
         // MOV Rn, #data
@@ -723,7 +725,7 @@ int Cpu::step()
         DEC_R(7)
 #define XRL_A_RPTR(n) \
         case 0xd0 + n: \
-            acc_ ^= rom_[r(n) & INTRAM_SIZE - 1]; \
+            acc_ ^= g_rom[r(n) & INTRAM_SIZE - 1]; \
             clock = 1; \
             break;
         // XRL A, @Rn
@@ -734,7 +736,7 @@ int Cpu::step()
             clock = 2;
             break;
         case 0xd3: // XRL A, #data
-            acc_ ^= rom_[pc_++];
+            acc_ ^= g_rom[pc_++];
             clock = 2;
             break;
         case 0xd4: // CALL (page 6)
@@ -764,7 +766,7 @@ int Cpu::step()
         XRL_A_R(6)
         XRL_A_R(7)
         case 0xe3: // MOVP3 A, @A
-            acc_ = rom_[0x300 | acc_];
+            acc_ = g_rom[0x300 | acc_];
             clock = 2;
             break;
         case 0xe4: // JMP (page 7)

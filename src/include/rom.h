@@ -24,6 +24,8 @@ class Rom : public ifstream
         uint8_t operator[](int index) const { return current_bank_[index % BANK_SIZE]; }
 };
 
+extern Rom g_rom;
+
 inline Rom::Rom()
     : banks_(4)
 {

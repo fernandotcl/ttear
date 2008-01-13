@@ -41,6 +41,7 @@ class OpenGLFramebuffer : public Framebuffer
         void fill_rect(SDL_Rect &r, int color);
 
         void paste_surface(int x, int y, SDL_Surface *surface);
+        void paste_surface(int x, int y, SDL_Surface *surface, SDL_Rect &src_r);
 
         void blit();
 
@@ -71,6 +72,12 @@ inline void OpenGLFramebuffer::paste_surface(int x, int y, SDL_Surface *surface)
 {
     SDL_Rect r = {x, y, 0, 0};
     SDL_BlitSurface(surface, NULL, buffer_, &r);
+}
+
+inline void OpenGLFramebuffer::paste_surface(int x, int y, SDL_Surface *surface, SDL_Rect &src_r)
+{
+    SDL_Rect r = {x, y, 0, 0};
+    SDL_BlitSurface(surface, &src_r, buffer_, &r);
 }
 
 #endif

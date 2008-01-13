@@ -6,6 +6,8 @@
 
 #include "options.h"
 
+Framebuffer *g_framebuffer = NULL;
+
 const uint8_t Framebuffer::colortable_[Framebuffer::COLORTABLE_SIZE][3] = {
     // Light background and grid colors
     { 95, 110, 107}, // dark gray

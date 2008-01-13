@@ -2,6 +2,8 @@
 
 #include "keyboard.h"
 
+Keyboard g_keyboard;
+
 const SDLKey Keyboard::keymap_[6][8] = {
     {SDLK_0, SDLK_1, SDLK_2, SDLK_3, SDLK_4, SDLK_5, SDLK_6, SDLK_7},
     {SDLK_8, SDLK_9, SDLK_UNKNOWN, SDLK_UNKNOWN, SDLK_SPACE, SDLK_QUESTION, SDLK_l, SDLK_p},

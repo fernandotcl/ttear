@@ -6,9 +6,11 @@
 
 #include "vdc.h"
 
-#include "charset.h"
+#include "chars.h"
 #include "cpu.h"
 #include "framebuffer.h"
+
+Vdc g_vdc;
 
 bool Vdc::entered_vblank_;
 uint32_t *Vdc::object_data_;
@@ -28,37 +30,27 @@ const uint8_t Vdc::object_colortable_[8][3] = {
 
 Vdc::Vdc()
     : mem_(MEMORY_SIZE),
-      first_drawing_scanline_(g_options.pal_emulation ? 71 : 21),
+      first_drawing_scanline_(g_options.pal_emulation ? 72 : 21),
       object_surface_(NULL)
 {
 }
 
-Vdc::~Vdc()
+void Vdc::init()
 {
-    SDL_FreeSurface(object_surface_);
-}
-
-void Vdc::init(Framebuffer *framebuffer, Cpu *cpu)
-{
-    cpu_ = cpu;
-    framebuffer_ = framebuffer;
-
-    {
-        // Create the surface that's going to be used to draw objects (chars, quads and sprites)
+    // Create the surface that's going to be used to draw objects (chars, quads and sprites)
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
-        static const uint32_t rmask = 0xff000000;
-        static const uint32_t gmask = 0x00ff0000;
-        static const uint32_t bmask = 0x0000ff00;
-        static const uint32_t amask = 0x000000ff;
+    static const uint32_t rmask = 0xff000000;
+    static const uint32_t gmask = 0x00ff0000;
+    static const uint32_t bmask = 0x0000ff00;
+    static const uint32_t amask = 0x000000ff;
 #else
-        static const uint32_t rmask = 0x000000ff;
-        static const uint32_t gmask = 0x0000ff00;
-        static const uint32_t bmask = 0x00ff0000;
-        static const uint32_t amask = 0xff000000;
+    static const uint32_t rmask = 0x000000ff;
+    static const uint32_t gmask = 0x0000ff00;
+    static const uint32_t bmask = 0x00ff0000;
+    static const uint32_t amask = 0xff000000;
 #endif
-        object_surface_ = SDL_CreateRGBSurface(SDL_HWSURFACE,
-                16 * Framebuffer::SCREEN_WIDTH_MULTIPLIER, 32, 32, rmask, gmask, bmask, amask);
-    }
+    object_surface_ = SDL_CreateRGBSurface(SDL_HWSURFACE,
+            16 * Framebuffer::SCREEN_WIDTH_MULTIPLIER, 32, 32, rmask, gmask, bmask, amask);
     if (!object_surface_)
         throw runtime_error(SDL_GetError());
     else if (object_surface_->format->BitsPerPixel != 32)
@@ -86,7 +78,7 @@ void Vdc::draw_background(SDL_Rect &clip_r)
     if (g_p1 & (1 << 7))
         color += 8; // luminescence bit
 
-    framebuffer_->fill_rect(clip_r, color);
+    g_framebuffer->fill_rect(clip_r, color);
 }
 
 void Vdc::draw_grid(SDL_Rect &clip_r)
@@ -108,7 +100,7 @@ void Vdc::draw_grid(SDL_Rect &clip_r)
                 r.y = j * 24 + 24;
                 r.w = 18 * Framebuffer::SCREEN_WIDTH_MULTIPLIER;
                 r.h = 4;
-                framebuffer_->fill_rect(r, color);
+                g_framebuffer->fill_rect(r, color);
             }
         }
     }
@@ -120,7 +112,7 @@ void Vdc::draw_grid(SDL_Rect &clip_r)
             r.y = 9 * 24;
             r.w = 18 * Framebuffer::SCREEN_WIDTH_MULTIPLIER;
             r.h = 4;
-            framebuffer_->fill_rect(r, color);
+            g_framebuffer->fill_rect(r, color);
         }
     }
 
@@ -135,14 +127,15 @@ void Vdc::draw_grid(SDL_Rect &clip_r)
                 r.y = j * 24 + 24;
                 r.w = vert_width * Framebuffer::SCREEN_WIDTH_MULTIPLIER;
                 r.h = vert_height;
-                framebuffer_->fill_rect(r, color);
+                g_framebuffer->fill_rect(r, color);
             }
         }
     }
 }
 
-inline void Vdc::draw_char(int x, uint8_t *ptr, SDL_Rect &clip_r)
+/*inline void Vdc::draw_char(int x, uint8_t *ptr, SDL_Rect &clip_r)
 {
+    x = x % 228 + 4;
     int y = ptr[0];
     if (y < clip_r.y || y + 16 > clip_r.y + clip_r.h
             || x + 8 * Framebuffer::SCREEN_WIDTH_MULTIPLIER < clip_r.x || x > clip_r.x + clip_r.w)
@@ -150,7 +143,6 @@ inline void Vdc::draw_char(int x, uint8_t *ptr, SDL_Rect &clip_r)
 
     memset(object_data_, SDL_ALPHA_TRANSPARENT, object_pitch_ * 32 * 4);
 
-    x = x % 228 + 4;
     uint8_t &control = ptr[3];
 
     uint32_t color = object_colormap_[(control & (1 << 1 | 1 << 2 | 1 << 3)) >> 1];
@@ -177,7 +169,7 @@ inline void Vdc::draw_char(int x, uint8_t *ptr, SDL_Rect &clip_r)
     }
 
     // Note that chars are 1/Framebuffer::SCREEN_WIDTH_MULTIPLIER pixels shifted to the left
-    framebuffer_->paste_surface(x * Framebuffer::SCREEN_WIDTH_MULTIPLIER - 1, y, object_surface_);
+    g_framebuffer->paste_surface(x * Framebuffer::SCREEN_WIDTH_MULTIPLIER - 1, y, object_surface_);
 }
 
 void Vdc::draw_chars(SDL_Rect &clip_r)
@@ -201,15 +193,15 @@ void Vdc::draw_quads(SDL_Rect &clip_r)
 {
     for (uint8_t *ptr = &mem_[QUADS_START]; ptr != &mem_[QUADS_START + 64]; ptr += 16)
         draw_quad(ptr, clip_r);
-}
+}*/
 
 inline void Vdc::draw_sprite(uint8_t *ptr, uint8_t *shape, SDL_Rect &clip_r)
 {
     int y = ptr[0];
     int x = ptr[1] % 228 + 4;
-    if (y < clip_r.y || y + 32 > clip_r.y + clip_r.h
+    /*if (y < clip_r.y || y + 32 > clip_r.y + clip_r.h
             || x + 16 * Framebuffer::SCREEN_WIDTH_MULTIPLIER < clip_r.x || x > clip_r.x + clip_r.w)
-        return;
+        return;*/
 
     memset(object_data_, SDL_ALPHA_TRANSPARENT, object_pitch_ * 32 * 4);
 
@@ -248,7 +240,7 @@ inline void Vdc::draw_sprite(uint8_t *ptr, uint8_t *shape, SDL_Rect &clip_r)
         }
     }
 
-    framebuffer_->paste_surface(x * Framebuffer::SCREEN_WIDTH_MULTIPLIER, y, object_surface_);
+    g_framebuffer->paste_surface(x * Framebuffer::SCREEN_WIDTH_MULTIPLIER, y, object_surface_);
 }
 
 void Vdc::draw_sprites(SDL_Rect &clip_r)
@@ -276,8 +268,9 @@ inline void Vdc::draw_rect(SDL_Rect &clip_r)
         if (SDL_MUSTLOCK(object_surface_))
             SDL_LockSurface(object_surface_);
 
-        draw_chars(clip_r);
-        draw_quads(clip_r);
+        g_chars.draw(&*mem_.begin(), clip_r);
+        //draw_chars(clip_r);
+        //draw_quads(clip_r);
 
         if (SDL_MUSTLOCK(object_surface_))
             SDL_UnlockSurface(object_surface_);
@@ -299,21 +292,21 @@ inline void Vdc::update_screen()
     int curline = scanlines_ - first_drawing_scanline_;
     if (cycles_ == 0) {
         SDL_Rect r = {0, curline, Framebuffer::SCREEN_WIDTH, Framebuffer::SCREEN_HEIGHT - curline};
-        framebuffer_->set_clip_rect(r);
+        g_framebuffer->set_clip_rect(r);
         draw_rect(r);
     }
     else {
         if (scanlines_ + 1 != Framebuffer::SCREEN_HEIGHT) {
             SDL_Rect r = {0, curline + 1, cycles_, Framebuffer::SCREEN_HEIGHT - curline - 1};
-            framebuffer_->set_clip_rect(r);
+            g_framebuffer->set_clip_rect(r);
             draw_rect(r);
         }
         SDL_Rect r = {cycles_, curline, Framebuffer::SCREEN_WIDTH - cycles_,
             Framebuffer::SCREEN_HEIGHT - curline};
-        framebuffer_->set_clip_rect(r);
+        g_framebuffer->set_clip_rect(r);
         draw_rect(r);
     }
-    framebuffer_->clear_clip_rect();
+    g_framebuffer->clear_clip_rect();
 }
 
 void Vdc::step()
@@ -333,10 +326,10 @@ void Vdc::step()
             // Let the running program know
             mem_[STATUS_REGISTER] |= 1 << 3;
             g_t1 = true;
-            cpu_->external_irq();
+            g_cpu.external_irq();
 
             // Do the blitting, set the screen as not drawn yet
-            framebuffer_->blit();
+            g_framebuffer->blit();
             screen_drawn_ = false;
         }
 
@@ -351,7 +344,7 @@ void Vdc::step()
 
         else if (g_options.pal_emulation && scanlines_ == 21) {
             // Clear external IRQ on line 21 for PAL
-            cpu_->clear_external_irq();
+            g_cpu.clear_external_irq();
         }
 
         ++scanlines_;
@@ -361,14 +354,14 @@ void Vdc::step()
         // Entered HBLANK, let the running program know
         mem_[STATUS_REGISTER] &= ~(1 << 0);
         if (mem_[CONTROL_REGISTER] & 1 << 0)
-            cpu_->external_irq();
+            g_cpu.external_irq();
     }
 
     else if (cycles_ == HBLANK_END) {
         // Out of HBLANK, let the running program know
         mem_[STATUS_REGISTER] |= 1 << 0;
         if (scanlines_ >= first_drawing_scanline_)
-            cpu_->counter_increment();
+            g_cpu.counter_increment();
     }
 
     ++cycles_;
@@ -381,7 +374,7 @@ uint8_t Vdc::read(uint8_t offset)
     switch (offset)
     {
         case STATUS_REGISTER:
-            cpu_->clear_external_irq();
+            g_cpu.clear_external_irq();
             val = mem_[STATUS_REGISTER];
             mem_[STATUS_REGISTER] &= ~(1 << 3);
             break;

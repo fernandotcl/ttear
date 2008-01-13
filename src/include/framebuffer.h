@@ -30,11 +30,14 @@ class Framebuffer
         virtual void fill_rect(SDL_Rect &r, int color) = 0;
 
         virtual void paste_surface(int x, int y, SDL_Surface *surface) = 0;
+        virtual void paste_surface(int x, int y, SDL_Surface *surface, SDL_Rect &src_r) = 0;
 
         virtual void blit() = 0;
 
         void take_snapshot();
         virtual void take_snapshot(const string &str) = 0;
 };
+
+extern Framebuffer *g_framebuffer;
 
 #endif

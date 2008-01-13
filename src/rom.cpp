@@ -7,6 +7,8 @@
 
 #include "rom.h"
 
+Rom g_rom;
+
 void Rom::load(const char *romfile, const char *biosfile)
 {
     exceptions(badbit);

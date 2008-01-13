@@ -40,6 +40,8 @@ class Joysticks
         uint8_t get_bus();
 };
 
+extern Joysticks g_joysticks;
+
 inline Joysticks::Joysticks()
 {
     buses_[0] = (1 << JOYSTICK_ACTION + 1) - 1;

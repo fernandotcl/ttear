@@ -8,8 +8,6 @@
 #include "framebuffer.h"
 #include "options.h"
 
-class Cpu;
-
 class Vdc
 {
     private:
@@ -23,8 +21,6 @@ class Vdc
         static const int X_REGISTER = 0xa5;
 
         static const int SPRITE_CONTROL_START = 0x00;
-        static const int CHARS_START = 0x10;
-        static const int QUADS_START = 0x40;
         static const int SPRITE_SHAPE_START = 0x80;
         static const int HORIZONTAL_GRID_START = 0xc0;
         static const int HORIZONTAL_GRID9_START = 0xd0;
@@ -42,9 +38,6 @@ class Vdc
         static const int CYCLES_PER_SCANLINE = 228;
         static const int HBLANK_START = 178;
         static const int HBLANK_END = 222;
-
-        Cpu *cpu_;
-        Framebuffer *framebuffer_;
 
         vector<uint8_t> mem_;
 
@@ -80,9 +73,8 @@ class Vdc
 
     public:
         Vdc();
-        ~Vdc();
 
-        void init(Framebuffer *framebuffer, Cpu *cpu);
+        void init();
 
         void reset();
         void step();
@@ -95,6 +87,8 @@ class Vdc
         void debug_dump(ostream &out) const { dump_memory(out, mem_, MEMORY_SIZE); }
         void debug_print_timing(ostream &out);
 };
+
+extern Vdc g_vdc;
 
 inline bool Vdc::entered_vblank()
 {

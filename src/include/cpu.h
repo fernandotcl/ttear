@@ -62,7 +62,6 @@ class Cpu
         // The program counter
         int pc_, last_pc_;
         bool a11_on_;
-        Rom &rom_;
 
         // acc_ is int instead of uint8_t to speed up some arithmetics
         int acc_;
@@ -85,9 +84,6 @@ class Cpu
         // Internal RAM
         vector<uint8_t> intram_;
 
-        // External storage
-        ExternalStorage &extstorage_;
-
         // The registers
         uint8_t *regptr_;
         void sel_rb0() { psw_.bs = 0; regptr_ = &intram_[0]; }
@@ -98,9 +94,6 @@ class Cpu
         bool extirq_en_, tcntirq_en_;
         bool extirq_pending_, tcntirq_pending_;
         bool in_irq_;
-
-        Keyboard &keyboard_;
-        Joysticks &joysticks_;
 
         // Stack operations
         void push(uint8_t val);
@@ -118,7 +111,7 @@ class Cpu
     public:
         static const int EXTRAM_SIZE = 128;
 
-        Cpu(Rom &rom, ExternalStorage &extstorage, Keyboard &keyboard, Joysticks &joysticks);
+        Cpu();
 
         // Debug stuff
         int debug_get_pc() { return last_pc_; }
@@ -133,14 +126,11 @@ class Cpu
         void counter_increment() { if (tcnt_status_ == TCNT_STATUS_COUNTER_ON) tcnt_increment(); }
 };
 
-inline Cpu::Cpu(Rom &rom, ExternalStorage &extstorage, Keyboard &keyboard, Joysticks &joysticks)
-    : rom_(rom),
-      intram_(INTRAM_SIZE),
-      extstorage_(extstorage),
-      keyboard_(keyboard),
-      joysticks_(joysticks)
+extern Cpu g_cpu;
+
+inline Cpu::Cpu()
+    : intram_(INTRAM_SIZE)
 {
-    reset();
 }
 
 inline void Cpu::reset()
