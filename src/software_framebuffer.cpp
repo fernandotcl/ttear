@@ -15,6 +15,12 @@ void SoftwareFramebuffer::init()
     screen_ = SDL_SetVideoMode(g_options.x_res, g_options.y_res, 32, flags);
     if (!screen_)
         throw runtime_error(SDL_GetError());
+    cout << "Set video mode to " << screen_->w << 'x' << screen_->h
+         << 'x' << (int)screen_->format->BitsPerPixel;
+    if (screen_->flags & SDL_DOUBLEBUF)
+        cout << " (double buffered)" << endl;
+    else
+        cout << " (no double buffering)" << endl;
 
     // Create a buffer to which we'll plot
     buffer_ = SDL_CreateRGBSurface(SDL_SWSURFACE, SCREEN_WIDTH, SCREEN_HEIGHT, 32, 0, 0, 0, 0);

@@ -17,7 +17,7 @@ class Chars
 
         void create_chars(SDL_Surface *surface, uint32_t color);
         SDL_Rect get_rect(int index, int cut_top, int cut_bottom);
-        void draw_char(int x, int y, uint8_t *ptr, SDL_Rect &clip_r);
+        void draw_char(int x, int y, uint8_t *ptr, SDL_Rect &clip_r, int cut_buttom = -1);
 
     public:
         void init();

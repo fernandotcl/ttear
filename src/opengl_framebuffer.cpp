@@ -83,6 +83,16 @@ void OpenGLFramebuffer::init()
     screen_ = SDL_SetVideoMode(g_options.x_res, g_options.y_res, 32, flags);
     if (!screen_)
         throw runtime_error(SDL_GetError());
+    cout << "Set video mode to " << screen_->w << 'x' << screen_->h
+         << 'x' << (int)screen_->format->BitsPerPixel;
+    if (screen_->flags & SDL_HWSURFACE)
+        cout << " (hardware accelerated, ";
+    else
+        cout << " (no hardware acceleration, ";
+    if (screen_->flags & SDL_DOUBLEBUF)
+        cout << "double buffered)" << endl;
+    else
+        cout << "no double buffering)" << endl;
 
     load_proc(s_glGetString, "glGetString");
     load_proc(s_glEnable, "glEnable");

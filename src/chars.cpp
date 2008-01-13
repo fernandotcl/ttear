@@ -93,8 +93,8 @@ void Chars::init()
 #endif
     for (int i = 0; i < 8; ++i) {
         surfaces_[i] = SDL_CreateRGBSurface(SDL_HWSURFACE,
-                NUM_CHARS * 16 * Framebuffer::SCREEN_WIDTH_MULTIPLIER,
-                16, 32, rmask, gmask, bmask, amask);
+                16 * Framebuffer::SCREEN_WIDTH_MULTIPLIER,
+                NUM_CHARS * 16, 32, rmask, gmask, bmask, amask);
         if (!surfaces_[i])
             throw runtime_error(SDL_GetError());
         else if (surfaces_[i]->format->BitsPerPixel != 32)
@@ -132,8 +132,8 @@ void Chars::create_chars(SDL_Surface *surface, uint32_t color)
             const uint8_t &bitfield = charset_[chr_idx * 8 + byte_idx];
             for (int bit_idx = 0; bit_idx < 8; ++bit_idx) {
                 if (bitfield & 1 << 7 - bit_idx) {
-                    SDL_Rect r = {(chr_idx * 16 + bit_idx) * Framebuffer::SCREEN_WIDTH_MULTIPLIER,
-                        byte_idx * 2, Framebuffer::SCREEN_WIDTH_MULTIPLIER, 2};
+                    SDL_Rect r = {bit_idx * Framebuffer::SCREEN_WIDTH_MULTIPLIER,
+                        chr_idx * 16 + byte_idx * 2, Framebuffer::SCREEN_WIDTH_MULTIPLIER, 2};
                     SDL_FillRect(surface, &r, color);
                 }
             }
@@ -146,39 +146,40 @@ void Chars::create_chars(SDL_Surface *surface, uint32_t color)
 
 inline SDL_Rect Chars::get_rect(int index, int cut_top, int cut_bottom)
 {
-    SDL_Rect r = {index * 2 * Framebuffer::SCREEN_WIDTH_MULTIPLIER,
-        cut_top * 2, 8 * Framebuffer::SCREEN_WIDTH_MULTIPLIER,
-        (8 - cut_top - cut_bottom) * 2};
+    index &= ~(1 << 0 | 1 << 1 | 1 << 2);
+    SDL_Rect r = {0, (index + cut_top) * 2,
+        8 * Framebuffer::SCREEN_WIDTH_MULTIPLIER,
+        (cut_bottom == -1 ? 8 - cut_top : cut_bottom) * 2};
     return r;
 }
 
-inline void Chars::draw_char(int x, int y, uint8_t *ptr, SDL_Rect &clip_r)
+inline void Chars::draw_char(int x, int y, uint8_t *ptr, SDL_Rect &clip_r, int cut_bottom)
 {
-    // TODO Implement char cutting
-    // TODO Optimize using clip_r
+    if (x < 4 || x > 228 || y + 16 < clip_r.y || y > clip_r.y + clip_r.h)
+        return;
  
     x = x % 228 + 4;
     uint8_t &control = ptr[3];
+
     int charset_index = (ptr[2] + ((control & 1 << 0) << 8) + y / 2) % (NUM_CHARS * 8);
+    SDL_Rect r = get_rect(charset_index, charset_index % 8, cut_bottom);
 
     // Note that chars are 1/Framebuffer::SCREEN_WIDTH_MULTIPLIER pixels shifted to the left
-    SDL_Rect r = get_rect(charset_index, 0, 0);
     g_framebuffer->paste_surface(x * Framebuffer::SCREEN_WIDTH_MULTIPLIER - 1, y,
             surfaces_[(control & (1 << 1 | 1 << 2 | 1 << 3)) >> 1], r);
 }
 
 void Chars::draw(uint8_t *mem, SDL_Rect &clip_r)
 {
-    // TODO Implement quad cutting
-
     for (uint8_t *ptr = &mem[CHARS_START]; ptr != &mem[CHARS_START + 48]; ptr += 4)
         draw_char(ptr[1], ptr[0], ptr, clip_r);
 
     for (uint8_t *ptr = &mem[QUADS_START]; ptr != &mem[QUADS_START + 64]; ptr += 16) {
         int y = ptr[0];
         int x = ptr[1];
+        int cut_bottom = 8 - (ptr[14] + (ptr[15] & 1 << 0) + y / 2) % 8;
         for (int i = 0; i < 16; i += 4) {
-            draw_char(x, y, &ptr[i], clip_r);
+            draw_char(x, y, &ptr[i], clip_r, cut_bottom);
             x += 16;
         }
     }
