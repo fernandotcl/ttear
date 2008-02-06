@@ -20,8 +20,6 @@ class Vdc
         static const int Y_REGISTER = 0xa4;
         static const int X_REGISTER = 0xa5;
 
-        static const int SPRITE_CONTROL_START = 0x00;
-        static const int SPRITE_SHAPE_START = 0x80;
         static const int HORIZONTAL_GRID_START = 0xc0;
         static const int HORIZONTAL_GRID9_START = 0xd0;
         static const int VERTICAL_GRID_START = 0xe0;
@@ -49,20 +47,8 @@ class Vdc
         bool grid_enabled() { return mem_[CONTROL_REGISTER] & 1 << 3; }
         bool foreground_enabled() { return mem_[CONTROL_REGISTER] & 1 << 5; }
 
-        SDL_Surface *object_surface_;
-        static uint32_t *object_data_;
-        static int object_pitch_;
-        static const uint8_t object_colortable_[8][3];
-        uint32_t object_colormap_[8];
-
         void draw_background(SDL_Rect &clip_r);
         void draw_grid(SDL_Rect &clip_r);
-        void draw_char(int x, uint8_t *ptr, SDL_Rect &clip_r);
-        void draw_chars(SDL_Rect &clip_r);
-        void draw_quad(uint8_t *ptr, SDL_Rect &clip_r);
-        void draw_quads(SDL_Rect &clip_r);
-        void draw_sprite(uint8_t *ptr, uint8_t *shape, SDL_Rect &clip_r);
-        void draw_sprites(SDL_Rect &clip_r);
         void draw_rect(SDL_Rect &clip_r);
 
         bool screen_drawn_;

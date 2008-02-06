@@ -16,6 +16,7 @@
 #include "rom.h"
 #include "software_framebuffer.h"
 #include "speedlimit.h"
+#include "sprites.h"
 #include "vdc.h"
 
 void VirtualMachine::init(const char *romfile, const char *biosfile)
@@ -33,8 +34,8 @@ void VirtualMachine::init(const char *romfile, const char *biosfile)
     SDL_ShowCursor(SDL_DISABLE);
     SDL_EnableKeyRepeat(0, 0);
 
-    g_vdc.init();
     g_chars.init();
+    g_sprites.init();
 
     if (g_options.opengl) {
         g_framebuffer = new OpenGLFramebuffer;

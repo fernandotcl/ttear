@@ -3,6 +3,18 @@
 
 #include "common.h"
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+# define TRANSPARENT_RMASK 0xff000000
+# define TRANSPARENT_GMASK 0x00ff0000
+# define TRANSPARENT_BMASK 0x0000ff00
+# define TRANSPARENT_AMASK 0x000000ff
+#else
+# define TRANSPARENT_RMASK 0x000000ff
+# define TRANSPARENT_GMASK 0x0000ff00
+# define TRANSPARENT_BMASK 0x00ff0000
+# define TRANSPARENT_AMASK 0xff000000
+#endif
+
 static const uint8_t colortable[24][3] = {
     // Sprite and char colors
     { 95, 110, 107}, // dark gray

@@ -80,21 +80,10 @@ const uint8_t Chars::charset_[Chars::NUM_CHARS * 8] = {
 void Chars::init()
 {
     // Create the surfaces
-#if SDL_BYTEORDER == SDL_BIG_ENDIAN
-    static const uint32_t rmask = 0xff000000;
-    static const uint32_t gmask = 0x00ff0000;
-    static const uint32_t bmask = 0x0000ff00;
-    static const uint32_t amask = 0x000000ff;
-#else
-    static const uint32_t rmask = 0x000000ff;
-    static const uint32_t gmask = 0x0000ff00;
-    static const uint32_t bmask = 0x00ff0000;
-    static const uint32_t amask = 0xff000000;
-#endif
     for (int i = 0; i < 8; ++i) {
         surfaces_[i] = SDL_CreateRGBSurface(SDL_HWSURFACE,
-                16 * Framebuffer::SCREEN_WIDTH_MULTIPLIER,
-                NUM_CHARS * 16, 32, rmask, gmask, bmask, amask);
+                16 * Framebuffer::SCREEN_WIDTH_MULTIPLIER, NUM_CHARS * 16, 32,
+                TRANSPARENT_RMASK, TRANSPARENT_GMASK, TRANSPARENT_BMASK, TRANSPARENT_AMASK);
         if (!surfaces_[i])
             throw runtime_error(SDL_GetError());
         else if (surfaces_[i]->format->BitsPerPixel != 32)
@@ -108,6 +97,7 @@ void Chars::init()
                 colortable[i + COLORTABLE_CHAR_OFFSET][1], colortable[i + COLORTABLE_CHAR_OFFSET][2]);
 
     // Draw the chars
+    cout << "Creating chars" << endl;;
     for (int clr_idx = 0; clr_idx < 8; ++clr_idx) {
         if (SDL_MUSTLOCK(surfaces_[clr_idx])) {
             if (SDL_LockSurface(surfaces_[clr_idx]))
@@ -121,10 +111,6 @@ void Chars::init()
 
 void Chars::create_chars(SDL_Surface *surface, uint32_t color)
 {
-    static int surface_idx = 0;
-    cout << "Initializing chars for color " << surface_idx++ << ": ";
-    cout.flush();
-
     memset(surface->pixels, SDL_ALPHA_TRANSPARENT, surface->pitch * 16);
 
     for (int chr_idx = 0; chr_idx < NUM_CHARS; ++chr_idx) {
@@ -138,10 +124,7 @@ void Chars::create_chars(SDL_Surface *surface, uint32_t color)
                 }
             }
         }
-        cout << '|';
-        cout.flush();
     }
-    cout << endl;
 }
 
 inline SDL_Rect Chars::get_rect(int index, int cut_top, int cut_bottom)

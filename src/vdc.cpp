@@ -1,7 +1,6 @@
 #include "common.h"
 
 #include <algorithm>
-#include <cstring>
 #include <iostream>
 
 #include "vdc.h"
@@ -9,60 +8,16 @@
 #include "chars.h"
 #include "cpu.h"
 #include "framebuffer.h"
+#include "sprites.h"
 
 Vdc g_vdc;
 
 bool Vdc::entered_vblank_;
-uint32_t *Vdc::object_data_;
-int Vdc::object_pitch_;
-
-const uint8_t Vdc::object_colortable_[8][3] = {
-    // Sprite and char colors
-    { 95, 110, 107}, // dark gray
-    {255,  66,  85}, // red
-    { 61, 240, 122}, // green
-    {217, 173,  93}, // yellow
-    {106, 161, 255}, // blue
-    {255, 152, 255}, // violet
-    { 49, 255, 255}, // cyan
-    {255, 255, 255}  // white
-};
 
 Vdc::Vdc()
     : mem_(MEMORY_SIZE),
-      first_drawing_scanline_(g_options.pal_emulation ? 72 : 21),
-      object_surface_(NULL)
+      first_drawing_scanline_(g_options.pal_emulation ? 72 : 21)
 {
-}
-
-void Vdc::init()
-{
-    // Create the surface that's going to be used to draw objects (chars, quads and sprites)
-#if SDL_BYTEORDER == SDL_BIG_ENDIAN
-    static const uint32_t rmask = 0xff000000;
-    static const uint32_t gmask = 0x00ff0000;
-    static const uint32_t bmask = 0x0000ff00;
-    static const uint32_t amask = 0x000000ff;
-#else
-    static const uint32_t rmask = 0x000000ff;
-    static const uint32_t gmask = 0x0000ff00;
-    static const uint32_t bmask = 0x00ff0000;
-    static const uint32_t amask = 0xff000000;
-#endif
-    object_surface_ = SDL_CreateRGBSurface(SDL_HWSURFACE,
-            16 * Framebuffer::SCREEN_WIDTH_MULTIPLIER, 32, 32, rmask, gmask, bmask, amask);
-    if (!object_surface_)
-        throw runtime_error(SDL_GetError());
-    else if (object_surface_->format->BitsPerPixel != 32)
-        throw runtime_error("Unable to create a 32bpp surface");
-
-    // We use those as an optimization, since they're used in several loops
-    object_data_ = (uint32_t *)object_surface_->pixels;
-    object_pitch_ = object_surface_->pitch / 4;
-
-    for (int i = 0; i < 8; ++i)
-        object_colormap_[i] = SDL_MapRGB(object_surface_->format, object_colortable_[i][0],
-                object_colortable_[i][1], object_colortable_[i][2]);
 }
 
 void Vdc::reset()
@@ -133,122 +88,6 @@ void Vdc::draw_grid(SDL_Rect &clip_r)
     }
 }
 
-/*inline void Vdc::draw_char(int x, uint8_t *ptr, SDL_Rect &clip_r)
-{
-    x = x % 228 + 4;
-    int y = ptr[0];
-    if (y < clip_r.y || y + 16 > clip_r.y + clip_r.h
-            || x + 8 * Framebuffer::SCREEN_WIDTH_MULTIPLIER < clip_r.x || x > clip_r.x + clip_r.w)
-        return;
-
-    memset(object_data_, SDL_ALPHA_TRANSPARENT, object_pitch_ * 32 * 4);
-
-    uint8_t &control = ptr[3];
-
-    uint32_t color = object_colormap_[(control & (1 << 1 | 1 << 2 | 1 << 3)) >> 1];
-    int charset_ptr = ptr[2] | (control & 1 << 0) << 8;
-
-    // TODO Implement shape caching
-
-    for (int i = 0; i < 16; ++i) {
-        int charset_index = charset_ptr + (y + i) / 2;
-        if (i / 2 > charset_index % 8)
-            continue; // cut-off
-
-        uint8_t bitfield = charset[charset_index & CHARSET_SIZE - 1];
-        for (int j = 0; j < 8; ++j) {
-            if (bitfield & 1 << 7 - j) {
-                int plot_x = i * object_pitch_ + j * Framebuffer::SCREEN_WIDTH_MULTIPLIER;
-                object_data_[plot_x++] = color;
-                object_data_[plot_x++] = color;
-                object_data_[plot_x++] = color;
-                object_data_[plot_x++] = color;
-                object_data_[plot_x] = color;
-            }
-        }
-    }
-
-    // Note that chars are 1/Framebuffer::SCREEN_WIDTH_MULTIPLIER pixels shifted to the left
-    g_framebuffer->paste_surface(x * Framebuffer::SCREEN_WIDTH_MULTIPLIER - 1, y, object_surface_);
-}
-
-void Vdc::draw_chars(SDL_Rect &clip_r)
-{
-    for (uint8_t *ptr = &mem_[CHARS_START]; ptr != &mem_[CHARS_START + 48]; ptr += 4)
-        draw_char(ptr[1], ptr, clip_r);
-}
-
-inline void Vdc::draw_quad(uint8_t *ptr, SDL_Rect &clip_r)
-{
-    // TODO Implement quad cutting
-
-    int x = ptr[1];
-    for (int i = 0; i < 16; i += 4) {
-        draw_char(x, &ptr[i], clip_r);
-        x += 16;
-    }
-}
-
-void Vdc::draw_quads(SDL_Rect &clip_r)
-{
-    for (uint8_t *ptr = &mem_[QUADS_START]; ptr != &mem_[QUADS_START + 64]; ptr += 16)
-        draw_quad(ptr, clip_r);
-}*/
-
-inline void Vdc::draw_sprite(uint8_t *ptr, uint8_t *shape, SDL_Rect &clip_r)
-{
-    int y = ptr[0];
-    int x = ptr[1] % 228 + 4;
-    /*if (y < clip_r.y || y + 32 > clip_r.y + clip_r.h
-            || x + 16 * Framebuffer::SCREEN_WIDTH_MULTIPLIER < clip_r.x || x > clip_r.x + clip_r.w)
-        return;*/
-
-    memset(object_data_, SDL_ALPHA_TRANSPARENT, object_pitch_ * 32 * 4);
-
-    int control = ptr[2];
-
-    static const int shift_table[4][2] = {
-        {0,                                    0},
-        {Framebuffer::SCREEN_WIDTH_MULTIPLIER, Framebuffer::SCREEN_WIDTH_MULTIPLIER},
-        {Framebuffer::SCREEN_WIDTH_MULTIPLIER, 0},
-        {0,                                    Framebuffer::SCREEN_WIDTH_MULTIPLIER},
-    };
-    int shift_index = control & (1 << 0 | 1 << 1);
-    int shift_even = shift_table[shift_index][0];
-    int shift_odd = shift_table[shift_index][1];
-
-    int color = object_colormap_[(control & (1 << 3 | 1 << 4 | 1 << 5)) >> 3];
-    int multiplier = control & 1 << 2 ? 2 : 1;
-
-    for (int i = 0; i < 8; ++i) {
-        int shift = i % 2 ? shift_odd : shift_even;
-
-        uint8_t bitfield = shape[i];
-
-        if (bitfield & 1 << 0) {
-            // The first column of every sprite is 1/Framebuffer::SCREEN_WIDTH_MULTIPLIER shorter
-            SDL_Rect r = {shift + 1, i * multiplier * 2,
-                multiplier * Framebuffer::SCREEN_WIDTH_MULTIPLIER - 1, multiplier * 2};
-            SDL_FillRect(object_surface_, &r, color);
-        }
-        for (int j = 1; j < 8; ++j) {
-            if (bitfield & 1 << j) {
-                SDL_Rect r = {j * multiplier * Framebuffer::SCREEN_WIDTH_MULTIPLIER + shift, i * multiplier * 2,
-                    multiplier * Framebuffer::SCREEN_WIDTH_MULTIPLIER, multiplier * 2};
-                SDL_FillRect(object_surface_, &r, color);
-            }
-        }
-    }
-
-    g_framebuffer->paste_surface(x * Framebuffer::SCREEN_WIDTH_MULTIPLIER, y, object_surface_);
-}
-
-void Vdc::draw_sprites(SDL_Rect &clip_r)
-{
-    for (int i = 3; i >= 0; --i)
-        draw_sprite(&mem_[SPRITE_CONTROL_START + i * 4], &mem_[SPRITE_SHAPE_START + i * 8], clip_r);
-}
-
 inline void Vdc::draw_rect(SDL_Rect &clip_r)
 {
 #ifdef DEBUG
@@ -265,17 +104,8 @@ inline void Vdc::draw_rect(SDL_Rect &clip_r)
         draw_grid(clip_r);
 
     if (foreground_enabled()) {
-        if (SDL_MUSTLOCK(object_surface_))
-            SDL_LockSurface(object_surface_);
-
         g_chars.draw(&*mem_.begin(), clip_r);
-        //draw_chars(clip_r);
-        //draw_quads(clip_r);
-
-        if (SDL_MUSTLOCK(object_surface_))
-            SDL_UnlockSurface(object_surface_);
-
-        draw_sprites(clip_r);
+        g_sprites.draw(&*mem_.begin(), clip_r);
     }
 }
 
