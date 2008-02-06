@@ -18,7 +18,7 @@ class Framebuffer
     public:
         static const int SCREEN_WIDTH_MULTIPLIER = 5;
         static const int SCREEN_WIDTH = 170 * SCREEN_WIDTH_MULTIPLIER;
-        static const int SCREEN_HEIGHT = 240;
+        static const int SCREEN_HEIGHT = 242;
 
         Framebuffer();
         virtual ~Framebuffer() {}

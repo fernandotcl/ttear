@@ -16,7 +16,7 @@ bool Vdc::entered_vblank_;
 
 Vdc::Vdc()
     : mem_(MEMORY_SIZE),
-      first_drawing_scanline_(g_options.pal_emulation ? 72 : 21)
+      first_drawing_scanline_(g_options.pal_emulation ? 70 : 21)
 {
 }
 
@@ -25,6 +25,7 @@ void Vdc::reset()
     fill(mem_.begin(), mem_.end(), 0);
     cycles_ = 0;
     scanlines_ = 0;
+    cur_frame_ = 0;
 }
 
 void Vdc::draw_background(SDL_Rect &clip_r)
@@ -141,17 +142,19 @@ inline void Vdc::update_screen()
 
 void Vdc::step()
 {
-    if (cycles_ >= CYCLES_PER_SCANLINE) {
-        cycles_ -= CYCLES_PER_SCANLINE;
+    int scanlines_end = g_options.pal_emulation ?
+        CYCLES_PER_SCANLINE : CYCLES_PER_SCANLINE - scanlines_ % 2;
+    if (cycles_ >= scanlines_end) {
+        cycles_ -= scanlines_end;
 
-        if (scanlines_ == Framebuffer::SCREEN_HEIGHT + first_drawing_scanline_) {
+        if (scanlines_ == Framebuffer::SCREEN_HEIGHT + first_drawing_scanline_ + cur_frame_ % 2) {
 #ifdef DEBUG
             cout << "entered vblank " << endl;
 #endif
-
             // Entered VBLANK
             entered_vblank_ = true;
             scanlines_ = 0;
+            ++cur_frame_;
 
             // Let the running program know
             mem_[STATUS_REGISTER] |= 1 << 3;
@@ -284,13 +287,14 @@ void Vdc::write(uint8_t offset, uint8_t value)
                 return;
 
             if (offset == COLLISION_REGISTER) {
-                // A change to the collision register indicates what collisions we will check for in the next frame
+                // A change to the collision register indicates what collisions
+                // we will check for in the next frame
                 // TODO
             }
 
             else {
-                // The screen needs to be redrawn if foreground objects, the grid or the color register have
-                // been changed
+                // The screen needs to be redrawn if foreground objects, the grid
+                // or the color register have been changed
                 if (screen_drawn_ && (!(offset & 1 << 7) || offset == COLOR_REGISTER)) {
 #ifdef DEBUG
                     cout << "updating screen because of other change (offset: 0x"

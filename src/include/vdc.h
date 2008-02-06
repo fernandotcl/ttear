@@ -39,7 +39,7 @@ class Vdc
 
         vector<uint8_t> mem_;
 
-        int cycles_, scanlines_;
+        int cycles_, scanlines_, cur_frame_;
         const int first_drawing_scanline_;
 
         static bool entered_vblank_;
