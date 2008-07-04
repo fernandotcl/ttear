@@ -1,0 +1,15 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#define HAVE_SYS_TIME_H @HAVE_SYS_TIME_H@
+#define HAVE_GETOPT_H @HAVE_GETOPT_H@
+#define HAVE_TIME_H @HAVE_TIME_H@
+#define HAVE_BZERO @HAVE_BZERO@
+#define HAVE_GETOPT_LONG @HAVE_GETOPT_LONG@
+#define HAVE_GETTIMEOFDAY @HAVE_GETTIMEOFDAY@
+
+#define PACKAGE_NAME "ttear"
+#define PACKAGE_VERSION "0.0.1"
+#define PACKAGE_BUGREPORT "fernandotcl@berlios.de"
+
+#endif

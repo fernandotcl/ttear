@@ -18,7 +18,7 @@ int main(int argc, char **argv)
             return EXIT_SUCCESS;
     }
     catch (exception &e) {
-        cout << "Unable to parse options: " << e.what() << endl;
+        cerr << "Unable to parse options: " << e.what() << endl;
         return EXIT_FAILURE;
     }
 

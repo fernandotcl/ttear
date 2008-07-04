@@ -1,14 +1,17 @@
 #ifndef COMMON_H
 #define COMMON_H
 
-#ifdef HAVE_CONFIG_H
-# include "config.h"
-#endif
-
 #include <SDL.h>
 #include <inttypes.h>
 #include <iostream>
 
+#include "config.h"
+
+#ifdef _DEBUG
+# ifndef DEBUG
+#  define DEBUG
+# endif
+#endif
 #ifdef DEBUG
 # ifdef NDEBUG
 #  undef NDEBUG

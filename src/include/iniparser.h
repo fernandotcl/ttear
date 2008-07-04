@@ -104,7 +104,6 @@ inline void IniParser::load()
                 throw_error_at_line(linecnt);
 
             lowercase(key);
-            lowercase(value);
             sections_[section][key] = value;
         }
     }

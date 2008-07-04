@@ -209,11 +209,6 @@ bool Options::parse(int argc, char **argv)
         throw runtime_error("ROM image file not specified");
     }
 
-    if (bios.empty()) {
-        show_usage(argv[0], cerr);
-        throw runtime_error("BIOS image file not specified");
-    }
-
     if (!config_file.empty()) {
         IniParser parser(config_file.c_str());
         parser.load();
@@ -289,6 +284,11 @@ bool Options::parse(int argc, char **argv)
                 controls[i].action = parse_key(parser, "action", section);
             }
         }
+    }
+
+    if (bios.empty()) {
+        show_usage(argv[0], cerr);
+        throw runtime_error("BIOS image file not specified");
     }
 
     if (swap_controls) {

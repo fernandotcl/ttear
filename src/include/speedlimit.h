@@ -4,14 +4,12 @@
 #include "common.h"
 
 #ifdef HAVE_GETTIMEOFDAY
-extern "C" {
 # ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
 # endif
 # ifdef HAVE_TIME_H
 #  include <time.h>
 # endif
-}
 #endif
 
 #include "options.h"
