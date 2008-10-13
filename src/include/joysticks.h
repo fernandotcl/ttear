@@ -44,8 +44,8 @@ extern Joysticks g_joysticks;
 
 inline Joysticks::Joysticks()
 {
-    buses_[0] = (1 << JOYSTICK_ACTION + 1) - 1;
-    buses_[1] = (1 << JOYSTICK_ACTION + 1) - 1;
+    buses_[0] = (1 << (JOYSTICK_ACTION + 1)) - 1;
+    buses_[1] = (1 << (JOYSTICK_ACTION + 1)) - 1;
 }
 
 #endif

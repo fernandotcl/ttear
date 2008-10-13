@@ -117,9 +117,10 @@ void Chars::create_chars(SDL_Surface *surface, uint32_t color)
         for (int byte_idx = 0; byte_idx < 8; ++byte_idx) {
             const uint8_t &bitfield = charset_[chr_idx * 8 + byte_idx];
             for (int bit_idx = 0; bit_idx < 8; ++bit_idx) {
-                if (bitfield & 1 << 7 - bit_idx) {
+                if (bitfield & 1 << (7 - bit_idx)) {
                     SDL_Rect r = {bit_idx * Framebuffer::SCREEN_WIDTH_MULTIPLIER,
-                        chr_idx * 16 + byte_idx * 2, Framebuffer::SCREEN_WIDTH_MULTIPLIER, 2};
+                        chr_idx * 16 + byte_idx * 2,
+                        Framebuffer::SCREEN_WIDTH_MULTIPLIER, 2};
                     SDL_FillRect(surface, &r, color);
                 }
             }

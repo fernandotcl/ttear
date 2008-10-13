@@ -90,7 +90,7 @@ inline void Cpu::addc(uint8_t val)
 inline void Cpu::jmp_if(bool val)
 {
     if (val)
-        pc_ = pc_ & 0xf00 | g_rom[pc_];
+        pc_ = (pc_ & 0xf00) | g_rom[pc_];
     else
         ++pc_;
 }
@@ -109,8 +109,8 @@ inline void Cpu::jmp(int page)
 
 inline void Cpu::call(int page)
 {
-    push(pc_ + 1 & 0xff);
-    push((pc_ + 1 & 0xf00) >> 8 | psw_() & 0xf0);
+    push((pc_ + 1) & 0xff);
+    push(((pc_ + 1) & 0xf00) >> 8 | (psw_() & 0xf0));
     jmp(page);
 }
 
@@ -118,7 +118,7 @@ inline void Cpu::irq(int addr)
 {
     in_irq_ = true;
     push(pc_ & 0xff);
-    push((pc_ & 0xf00) >> 8 | psw_() & 0xf0);
+    push((pc_ & 0xf00) >> 8 | (psw_() & 0xf0));
     pc_ = addr;
 }
 
@@ -139,7 +139,7 @@ int Cpu::step()
     }
 
     uint8_t opcode = g_rom[pc_++];
-    pc_ = pc_ & Rom::BANK_SIZE - 1;
+    pc_ = pc_ & (Rom::BANK_SIZE - 1);
     int clock;
 
 #ifdef DEBUG
@@ -166,7 +166,7 @@ int Cpu::step()
             clock = 1;
             break;
         case 0x07: // DEC A
-            acc_ = acc_ - 1 & 0xff;
+            acc_ = (acc_ - 1) & 0xff;
             clock = 1;
             break;
         case 0x08: // INS A, BUS
@@ -194,7 +194,7 @@ int Cpu::step()
         MOVD_A_P(3, p7_)
 #define INC_RPTR(n) \
         case 0x10 + n: \
-            intram_[r(n) & INTRAM_SIZE - 1]++; \
+            intram_[r(n) & (INTRAM_SIZE - 1)]++; \
             clock = 1; \
             break;
         // INC @Rn
@@ -222,7 +222,7 @@ int Cpu::step()
             clock = 2;
             break;
         case 0x17: // INC A
-            acc_ = acc_ + 1 & 0xff;
+            acc_ = (acc_ + 1) & 0xff;
             clock = 1;
             break;
 #define INC_R(n) \
@@ -242,8 +242,8 @@ int Cpu::step()
 #define XCH_A_RPTR(n) \
         case 0x20 + n: \
             tmp = (uint8_t)acc_; \
-            acc_ = intram_[r(n) & INTRAM_SIZE - 1]; \
-            intram_[r(n) & INTRAM_SIZE - 1] = tmp; \
+            acc_ = intram_[r(n) & (INTRAM_SIZE - 1)]; \
+            intram_[r(n) & (INTRAM_SIZE - 1)] = tmp; \
             clock = 1; \
             break;
         // XCH A, @Rn
@@ -288,8 +288,9 @@ int Cpu::step()
 #define XCHD_A_RPTR(n) \
         case 0x30 + n: \
             tmp = (uint8_t)acc_ & 0x0f; \
-            acc_ = acc_ & 0xf0 | intram_[r(n) & INTRAM_SIZE - 1] & 0x0f; \
-            intram_[r(n) & 0x3f] = intram_[r(n) & INTRAM_SIZE - 1] & 0xf0 | tmp; \
+            acc_ = (acc_ & 0xf0) | (intram_[r(n) & (INTRAM_SIZE - 1)] & 0x0f); \
+            intram_[r(n) & 0x3f] = (intram_[r(n) & (INTRAM_SIZE - 1)] \
+                & 0xf0) | tmp; \
             clock = 1; \
             break;
         // XCHD A, @Rn
@@ -335,7 +336,7 @@ int Cpu::step()
         MOVD_P_A(3, p7_)
 #define ORL_A_RPTR(n) \
         case 0x40 + n: \
-            acc_ |= intram_[r(n) & INTRAM_SIZE - 1]; \
+            acc_ |= intram_[r(n) & (INTRAM_SIZE - 1)]; \
             clock = 1; \
             break;
         // ORL A, @Rn
@@ -381,7 +382,7 @@ int Cpu::step()
         ORL_A_R(7)
 #define ANL_A_RPTR(n) \
         case 0x50 + n: \
-            acc_ &= intram_[r(n) & INTRAM_SIZE - 1]; \
+            acc_ &= intram_[r(n) & (INTRAM_SIZE - 1)]; \
             clock = 1; \
             break;
         // ANL A, @Rn
@@ -420,7 +421,7 @@ int Cpu::step()
                 tmp += 6;
                 psw_.set_cy();
             }
-            acc_  = (acc_ & 0x0f | tmp << 4) & 0xff;
+            acc_  = ((acc_ & 0x0f) | tmp << 4) & 0xff;
             clock = 1;
             break;
 #define ANL_A_R(n) \
@@ -439,7 +440,7 @@ int Cpu::step()
         ANL_A_R(7)
 #define ADD_A_RPTR(n) \
         case 0x60 + n: \
-            add(intram_[r(n) & INTRAM_SIZE - 1]); \
+            add(intram_[r(n) & (INTRAM_SIZE - 1)]); \
             clock = 1; \
             break;
         // ADD A, @Rn
@@ -479,7 +480,7 @@ int Cpu::step()
         ADD_A_R(7)
 #define ADDC_A_RPTR(n) \
         case 0x70 + n: \
-            addc(intram_[r(n) & INTRAM_SIZE - 1]); \
+            addc(intram_[r(n) & (INTRAM_SIZE - 1)]); \
             clock = 1; \
             break;
         // ADDC A, @Rn
@@ -615,14 +616,14 @@ int Cpu::step()
         ANLD_P_A(3, p7_)
 #define MOV_RPTR_A(n) \
         case 0xa0 + n: \
-            intram_[r(n) & INTRAM_SIZE - 1] = acc_; \
+            intram_[r(n) & (INTRAM_SIZE - 1)] = acc_; \
             clock = 1; \
             break;
         // MOV @Rn, A
         MOV_RPTR_A(0)
         MOV_RPTR_A(1)
         case 0xa3: // MOVP A, @A
-            acc_ = g_rom[pc_ & 0xf00 | acc_];
+            acc_ = g_rom[(pc_ & 0xf00) | acc_];
             clock = 2;
             break;
         case 0xa4: // JMP (page 5)
@@ -653,7 +654,7 @@ int Cpu::step()
         MOV_R_A(7)
 #define MOV_RPTR_DATA(n) \
         case 0xb0 + n: \
-            intram_[r(n) & INTRAM_SIZE - 1] = g_rom[pc_++]; \
+            intram_[r(n) & (INTRAM_SIZE - 1)] = g_rom[pc_++]; \
             clock = 2; \
             break;
         // MOV @Rn, #data
@@ -664,7 +665,7 @@ int Cpu::step()
             clock = 2;
             break;
         case 0xb3: // JMPP @A
-            pc_ = pc_ & 0xf00 | g_rom[pc_ & 0xf00 | acc_];
+            pc_ = (pc_ & 0xf00) | g_rom[(pc_ & 0xf00) | acc_];
             clock = 2;
             break;
         case 0xb4: // CALL (page 5)
@@ -725,7 +726,7 @@ int Cpu::step()
         DEC_R(7)
 #define XRL_A_RPTR(n) \
         case 0xd0 + n: \
-            acc_ ^= g_rom[r(n) & INTRAM_SIZE - 1]; \
+            acc_ ^= g_rom[r(n) & (INTRAM_SIZE - 1)]; \
             clock = 1; \
             break;
         // XRL A, @Rn
@@ -801,7 +802,7 @@ int Cpu::step()
         DJNZ_R(7)
 #define MOV_A_RPTR(n) \
         case 0xf0 + n: \
-            acc_ = intram_[r(n) & INTRAM_SIZE - 1]; \
+            acc_ = intram_[r(n) & (INTRAM_SIZE - 1)]; \
             clock = 1; \
             break;
         // MOV A, @Rn
